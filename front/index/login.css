@@ -1,0 +1,83 @@
+/* Paleta de colores basada en tu imagen */
+:root {
+    --color-primary-dark: #8b2c6a;   /* Morado/Fucsia oscuro */
+    --color-primary-medium: #c74c9d; /* Rosa medio */
+    --color-background: #f0f2f5;     /* Un gris muy claro para el fondo */
+    --color-text-dark: #333;
+    --color-text-light: #fff;
+    --color-border: #ddd;
+}
+
+body {
+    background-color: var(--color-background);
+    font-family: sans-serif;
+}
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.login-card {
+    background-color: var(--color-text-light);
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden; /* Para que el borde superior respete el border-radius */
+}
+
+.login-card-header {
+    background-color: var(--color-primary-dark);
+    padding: 30px 20px;
+    text-align: center;
+}
+
+.school-logo {
+    max-width: 100px; /* Ajusta el tamaño de tu logo */
+    margin-bottom: 15px;
+}
+
+.login-card-header h1 {
+    color: var(--color-text-light);
+    margin: 0;
+    font-size: 1.8em;
+    font-weight: bold;
+}
+
+.login-card-body {
+    padding: 40px;
+}
+
+.form-control:focus {
+    border-color: var(--color-primary-medium);
+    box-shadow: 0 0 0 0.25rem rgba(139, 44, 106, 0.25);
+}
+
+.btn-login {
+    background-color: var(--color-primary-dark);
+    border-color: var(--color-primary-dark);
+    color: var(--color-text-light);
+    padding: 12px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.btn-login:hover {
+    background-color: var(--color-primary-medium);
+    border-color: var(--color-primary-medium);
+    color: var(--color-text-light);
+}
+
+.forgot-password-link {
+    color: var(--color-primary-medium);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.forgot-password-link:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
