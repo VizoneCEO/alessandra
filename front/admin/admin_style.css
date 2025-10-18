@@ -1,0 +1,136 @@
+:root {
+  --main-bg-color: #f0f2f5;
+  --main-text-color: #000;
+  --primary-text-color: #8b2c6a; /* Color del logo */
+  --second-text-color: #adb5bd;
+}
+
+#wrapper {
+  overflow-x: hidden;
+  background-image: linear-gradient(
+    to right,
+    #b993d6,
+    #8ca6db
+  );
+}
+
+#sidebar-wrapper {
+  min-height: 100vh;
+  margin-left: -15rem;
+  transition: margin 0.25s ease-out;
+  background-color: #1a1a1a !important; /* Un fondo oscuro para el menú */
+}
+
+#sidebar-wrapper .sidebar-heading {
+  padding: 0.875rem 1.25rem;
+  font-size: 1.2rem;
+  color: var(--primary-text-color);
+}
+
+#sidebar-wrapper .list-group {
+  width: 15rem;
+}
+
+#page-content-wrapper {
+  min-width: 100vw;
+  background-color: var(--main-bg-color);
+}
+
+#wrapper.toggled #sidebar-wrapper {
+  margin-left: 0;
+}
+
+#sidebar-wrapper .list-group-item {
+  border: none;
+  padding: 20px 30px;
+  color: var(--second-text-color);
+}
+
+#sidebar-wrapper .list-group-item:hover,
+#sidebar-wrapper .list-group-item.active {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-left: 4px solid var(--primary-text-color);
+}
+
+@media (min-width: 768px) {
+  #sidebar-wrapper {
+    margin-left: 0;
+  }
+
+  #page-content-wrapper {
+    min-width: 0;
+    width: 100%;
+  }
+
+  #wrapper.toggled #sidebar-wrapper {
+    margin-left: -15rem;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* --- ESTILOS PARA EL DASHBOARD DE MATERIAS (TIPO CANVA) --- */
+.semestre-column {
+    background-color: #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    min-height: 500px;
+}
+
+.materia-card {
+    background-color: #fff;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.materia-card-header {
+    font-weight: bold;
+    color: var(--primary-text-color);
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.clase-card {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.clase-card .profesor-name {
+    font-size: 0.9em;
+}
+
+.delete-clase-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 0 5px;
+}
+.delete-clase-btn:hover {
+    color: #a71d2a;
+}
