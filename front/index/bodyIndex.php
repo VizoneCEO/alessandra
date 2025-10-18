@@ -1,3 +1,9 @@
+<?php
+// Iniciar la sesión si no está iniciada para poder leer los mensajes de error
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+?>
 <div class="login-container">
     <div class="card login-card">
 
@@ -7,15 +13,25 @@
         </div>
 
         <div class="login-card-body">
-            <form>
+
+            <?php
+            // Este bloque PHP muestra un mensaje de error si el login falla
+            if (isset($_SESSION['login_error'])) {
+                echo '<div class="alert alert-danger" role="alert">' . htmlspecialchars($_SESSION['login_error']) . '</div>';
+                // Una vez mostrado, eliminamos el mensaje para que no se repita
+                unset($_SESSION['login_error']);
+            }
+            ?>
+
+            <form action="back/auth.php" method="POST">
                 <div class="mb-4">
                     <label for="curp" class="form-label">Usuario (CURP)</label>
-                    <input type="text" class="form-control" id="curp" placeholder="Ingresa tu CURP" required>
+                    <input type="text" class="form-control" id="curp" name="curp" placeholder="Ingresa tu CURP" required>
                 </div>
 
                 <div class="mb-4">
                     <label for="password" class="form-label">Contraseña</label>
-                    <input type="password" class="form-control" id="password" placeholder="Ingresa tu contraseña" required>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Ingresa tu contraseña" required>
                 </div>
 
                 <div class="d-grid">
@@ -24,8 +40,7 @@
             </form>
 
             <div class="text-center mt-4">
-                <a href="#" class="forgot-password-link">¿No tienes contraseña o la olvidaste?</a>
-            </div>
+<a href="register.php" class="forgot-password-link">¿No tienes contraseña o la olvidaste?</a>            </div>
         </div>
 
     </div>
