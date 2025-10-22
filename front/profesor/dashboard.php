@@ -2,18 +2,12 @@
 session_start();
 
 // --- Seguridad ---
-// 1. Comprobar si el usuario ha iniciado sesión
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../../index.php");
-    exit();
-}
-// 2. Comprobar si el usuario es un profesor (perfil_id = 2)
-if ($_SESSION['perfil_id'] != 2) {
+if (!isset($_SESSION['user_id']) || $_SESSION['perfil_id'] != 2) {
     header("Location: ../../index.php");
     exit();
 }
 
-// Lógica para cargar la vista correcta en el contenido principal
+// Lógica para cargar la vista correcta
 $view = isset($_GET['view']) ? $_GET['view'] : 'clases';
 ?>
 <!DOCTYPE html>
@@ -39,6 +33,9 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'clases';
                 <a href="dashboard.php?view=no_calificados" class="list-group-item list-group-item-action bg-transparent second-text <?php echo ($view == 'no_calificados') ? 'active' : ''; ?>">
                     <i class="fas fa-user-clock me-2"></i>Alumnos sin Calificar
                 </a>
+                <a href="dashboard.php?view=reporte" class="list-group-item list-group-item-action bg-transparent second-text <?php echo ($view == 'reporte') ? 'active' : ''; ?>">
+                    <i class="fas fa-chart-bar me-2"></i>Reporte General
+                </a>
                 <a href="../../back/logout.php" class="list-group-item list-group-item-action bg-transparent text-danger fw-bold">
                     <i class="fas fa-power-off me-2"></i>Cerrar Sesión
                 </a>
@@ -49,7 +46,7 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'clases';
                 <div class="d-flex align-items-center">
                     <h2 class="fs-2 m-0">Panel de Profesor</h2>
                 </div>
-                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <div class="collapse navbar-collapse">
                     <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                         <li class="nav-item">
                             <a class="nav-link" href="#">
@@ -63,17 +60,17 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'clases';
             <div class="container-fluid px-4">
                 <?php
                 // --- Cargador de contenido ---
-                $allowed_views = ['clases', 'no_calificados'];
+                // ===== AÑADIMOS 'reporte' A LAS VISTAS PERMITIDAS =====
+                $allowed_views = ['clases', 'no_calificados', 'reporte'];
                 if (in_array($view, $allowed_views)) {
                     include 'body_' . $view . '.php';
                 } else {
-                    // Si la vista no es válida, cargamos la principal
                     include 'body_clases.php';
                 }
                 ?>
             </div>
         </div>
-        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

@@ -84,17 +84,15 @@ if (isset($_POST['action'])) {
             }
             break;
 
-        // --- ACCIÓN: GUARDAR CALIFICACIONES (PARA ACTIVIDADES, ASISTENCIA Y EXÁMENES) ---
+        // --- ACCIÓN: GUARDAR CALIFICACIONES ---
         case 'save_grades':
             if (isset($_POST['calificaciones'])) {
                 $calificaciones = $_POST['calificaciones'];
 
-                // Usamos "INSERT ... ON DUPLICATE KEY UPDATE" para insertar o actualizar la nota
                 $stmt = $conn->prepare("INSERT INTO Calificaciones (inscripcion_id, actividad_id, calificacion_obtenida) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE calificacion_obtenida = VALUES(calificacion_obtenida)");
 
                 foreach($calificaciones as $inscripcion_id => $actividades) {
                     foreach($actividades as $actividad_id => $nota) {
-                        // Solo procesamos si la nota no está vacía y es un número
                         if ($nota !== '' && is_numeric($nota)) {
                             $nota_decimal = (float)$nota;
                             $stmt->bind_param("iid", $inscripcion_id, $actividad_id, $nota_decimal);
