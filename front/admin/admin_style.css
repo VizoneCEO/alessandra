@@ -68,23 +68,10 @@
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /* --- ESTILOS PARA EL DASHBOARD DE MATERIAS (TIPO CANVA) --- */
+
+/* La clase .semestre-column ya no se usa, así que la eliminamos o comentamos */
+/*
 .semestre-column {
     background-color: #e9ecef;
     border-radius: 8px;
@@ -92,13 +79,19 @@
     margin-bottom: 20px;
     min-height: 500px;
 }
+*/
 
 .materia-card {
     background-color: #fff;
     border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 15px;
+    /* padding: 15px; -> Lo quitamos para que el header/body/footer se alineen */
+    margin-bottom: 0; /* Bootstrap (g-3) se encarga del espaciado */
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    height: 100%; /* Para que las tarjetas en un row tengan la misma altura */
+
+    /* Usamos flex para distribuir el contenido verticalmente */
+    display: flex;
+    flex-direction: column;
 }
 
 .materia-card-header {
@@ -106,7 +99,22 @@
     color: var(--primary-text-color);
     margin-bottom: 10px;
     border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
+    padding: 15px; /* Añadimos padding aquí */
+}
+
+/* Nuevo: Body de la tarjeta para las asignaciones */
+.materia-card-body {
+    flex-grow: 1; /* Hace que esta sección ocupe el espacio disponible */
+    padding: 0 15px; /* Solo padding horizontal */
+    overflow-y: auto; /* Scroll si hay muchos profes */
+    max-height: 200px; /* Límite para que no se haga gigante */
+}
+
+/* Nuevo: Footer de la tarjeta para el formulario */
+.materia-card-footer {
+    padding: 15px;
+    border-top: 1px solid #f5f5f5;
+    background-color: #fafafa;
 }
 
 .clase-card {
@@ -133,4 +141,40 @@
 }
 .delete-clase-btn:hover {
     color: #a71d2a;
+}
+
+/* --- AÑADIR ESTO AL FINAL DE admin_style.css --- */
+
+.clase-conteo-wrapper {
+    margin-bottom: 8px; /* Espacio entre grupos de profe+conteo */
+}
+
+.clase-card {
+    margin-bottom: 0; /* Quitamos el margen inferior original */
+    /* Redondeamos solo las esquinas de arriba */
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none; /* Quitamos el borde de abajo */
+}
+
+.conteo-alumnos {
+    font-size: 0.85em;
+    padding: 4px 12px;
+    /* Redondeamos solo las esquinas de abajo */
+    border-radius: 0 0 4px 4px;
+    border: 1px solid #dee2e6;
+    margin-top: -1px; /* Para que se pegue bien al 'clase-card' */
+}
+
+.conteo-alumnos-normal {
+    background-color: #cfe2ff;
+    border-color: #b6d4fe;
+    color: #052c65;
+}
+
+.conteo-alumnos-rojo {
+    background-color: #f8d7da;
+    border-color: #f5c2c7;
+    color: #58151c;
+    font-weight: bold;
 }

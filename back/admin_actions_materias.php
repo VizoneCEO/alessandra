@@ -2,6 +2,10 @@
 session_start();
 require 'db_connect.php';
 
+// --- ESTA LÍNEA ES NUEVA ---
+// Le decimos a MySQLi que reporte los errores como excepciones para poder "cacharlos"
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
 // --- Seguridad: Solo los administradores pueden jugar aquí ---
 if (!isset($_SESSION['user_id']) || $_SESSION['perfil_id'] != 1) {
     header("Location: ../index.php");
@@ -27,23 +31,29 @@ if (isset($_POST['action'])) {
             break;
 
         // --- ACCIÓN: ASIGNAR UN PROFESOR A UNA MATERIA (CREAR CLASE) ---
+        // --- BLOQUE 'create_clase' MODIFICADO CON TRY...CATCH ---
         case 'create_clase':
             $materia_id = $_POST['materia_id'];
             $profesor_id = $_POST['profesor_id'];
-            $ciclo_id = $_POST['ciclo_id']; // Necesitamos el ciclo activo
+            $ciclo_id = $_POST['ciclo_id'];
 
-            $stmt = $conn->prepare("INSERT INTO Clases (materia_id, profesor_id, ciclo_id) VALUES (?, ?, ?)");
-            $stmt->bind_param("iii", $materia_id, $profesor_id, $ciclo_id);
-            if ($stmt->execute()) {
+            try {
+                $stmt = $conn->prepare("INSERT INTO Clases (materia_id, profesor_id, ciclo_id) VALUES (?, ?, ?)");
+                $stmt->bind_param("iii", $materia_id, $profesor_id, $ciclo_id);
+                $stmt->execute();
+
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Profesor asignado a la materia correctamente.'];
-            } else {
-                 if ($conn->errno == 1062) { // Error de entrada duplicada
+                $stmt->close();
+
+            } catch (mysqli_sql_exception $e) {
+                // Verificamos si el código de error es 1062 (Entrada duplicada)
+                if ($e->getCode() == 1062) {
                     $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Este profesor ya está asignado a esta materia en este ciclo.'];
                 } else {
-                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al asignar el profesor.'];
+                    // Si es cualquier otro error, lo mostramos
+                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al asignar el profesor: ' . $e->getMessage()];
                 }
             }
-            $stmt->close();
             break;
 
         // --- ACCIÓN: ELIMINAR LA ASIGNACIÓN DE UN PROFESOR (ELIMINAR CLASE) ---

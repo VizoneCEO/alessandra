@@ -41,13 +41,23 @@ if (isset($_SESSION['message'])) {
 
 <div class="card">
     <div class="card-header">
-        <div class="row align-items-center">
-            <div class="col-md-6"><i class="fas fa-users me-1"></i>Lista de Usuarios</div>
-            <div class="col-md-6">
+        <div class="row gy-2 align-items-center">
+            <div class="col-md-4">
+                <i class="fas fa-users me-1"></i>Lista de Usuarios
+            </div>
+            <div class="col-md-4">
                 <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombre o CURP...">
             </div>
+            <div class="col-md-4 text-md-end">
+                <div class="btn-group" role="group" id="profileFilterButtons">
+                    <button type="button" class="btn btn-sm btn-outline-secondary active" data-filter="Todos">Todos</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-filter="administrador">Admin</button>
+                    <button type="button" class="btn btn-sm btn-outline-info" data-filter="profesor">Profesor</button>
+                    <button type="button" class="btn btn-sm btn-outline-success" data-filter="alumno">Alumno</button>
+                </div>
+            </div>
         </div>
-    </div>
+        </div>
     <div class="card-body">
         <div class="table-responsive">
             <table class="table table-striped table-hover" id="userTable">
@@ -137,31 +147,83 @@ if (isset($_SESSION['message'])) {
 </div>
 
 <script>
-// Función para poblar el modal de edición (actualizada)
+// Función para poblar el modal de edición (sin cambios)
 function prepareEditModal(button) {
     document.getElementById('edit_user_id').value = button.getAttribute('data-user-id');
-    document.getElementById('edit_nombre_completo').value = button.getAttribute('data-user-name'); // Ahora llena el input
-    document.getElementById('edit_perfil_id').value = button.getAttribute('data-user-profile-id'); // Selecciona el perfil actual
+    document.getElementById('edit_nombre_completo').value = button.getAttribute('data-user-name');
+    document.getElementById('edit_perfil_id').value = button.getAttribute('data-user-profile-id');
 }
 
-// Script para la barra de búsqueda
-document.getElementById('searchInput').addEventListener('keyup', function() {
-    const filter = this.value.toUpperCase();
-    const table = document.getElementById('userTable');
-    const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+// --- NUEVO SCRIPT DE FILTRADO COMBINADO ---
+
+// Variable global para guardar el filtro de perfil seleccionado
+let currentProfileFilter = 'Todos';
+
+// Obtenemos las referencias a los elementos una sola vez
+const searchInput = document.getElementById('searchInput');
+const table = document.getElementById('userTable');
+const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+const filterButtons = document.getElementById('profileFilterButtons');
+
+/**
+ * Función principal que filtra la tabla basándose en
+ * el texto de búsqueda Y el botón de perfil activo.
+ */
+function filterTable() {
+    const searchText = searchInput.value.toUpperCase();
 
     for (let i = 0; i < rows.length; i++) {
-        const nameCol = rows[i].getElementsByTagName('td')[0]; // Columna Nombre
-        const curpCol = rows[i].getElementsByTagName('td')[1]; // Columna CURP
-        if (nameCol || curpCol) {
-            const nameText = nameCol.textContent || nameCol.innerText;
-            const curpText = curpCol.textContent || curpCol.innerText;
-            if (nameText.toUpperCase().indexOf(filter) > -1 || curpText.toUpperCase().indexOf(filter) > -1) {
-                rows[i].style.display = "";
-            } else {
-                rows[i].style.display = "none";
-            }
+        const row = rows[i];
+        const nameCol = row.getElementsByTagName('td')[0]; // Columna 0: Nombre
+        const curpCol = row.getElementsByTagName('td')[1]; // Columna 1: CURP
+        const profileCol = row.getElementsByTagName('td')[2]; // Columna 2: Perfil
+
+        if (!nameCol || !curpCol || !profileCol) continue;
+
+        const nameText = nameCol.textContent || nameCol.innerText;
+        const curpText = curpCol.textContent || curpCol.innerText;
+        // Obtenemos el texto del perfil, limpiamos espacios y lo pasamos a minúscula
+        const profileText = (profileCol.textContent || profileCol.innerText).trim().toLowerCase();
+
+        // 1. Comprobar filtro de texto
+        const textMatch = (nameText.toUpperCase().indexOf(searchText) > -1) ||
+                          (curpText.toUpperCase().indexOf(searchText) > -1);
+
+        // 2. Comprobar filtro de perfil
+        const profileMatch = (currentProfileFilter === 'Todos') ||
+                             (profileText === currentProfileFilter);
+
+        // Mostrar la fila solo si AMBOS filtros coinciden
+        if (textMatch && profileMatch) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
         }
     }
+}
+
+// 1. Asignar evento 'keyup' al campo de búsqueda
+searchInput.addEventListener('keyup', filterTable);
+
+// 2. Asignar eventos 'click' a los botones de filtro
+filterButtons.addEventListener('click', function(e) {
+    // Asegurarnos que se hizo clic en un botón
+    if (e.target.tagName === 'BUTTON') {
+
+        // Actualizar la variable global con el valor del data-filter
+        currentProfileFilter = e.target.getAttribute('data-filter');
+
+        // Quitar la clase 'active' de todos los botones del grupo
+        const buttons = this.getElementsByTagName('button');
+        for (let btn of buttons) {
+            btn.classList.remove('active');
+        }
+        // Añadir la clase 'active' solo al botón presionado
+        e.target.classList.add('active');
+
+        // Ejecutar el filtro
+        filterTable();
+    }
 });
+
 </script>

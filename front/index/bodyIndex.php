@@ -40,8 +40,13 @@ if (session_status() == PHP_SESSION_NONE) {
             </form>
 
             <div class="text-center mt-4">
-<a href="register.php" class="forgot-password-link">¿No tienes contraseña o la olvidaste?</a>            </div>
-        </div>
+                <a href="register.php" class="forgot-password-link">¿No tienes contraseña o la olvidaste?</a>
+            </div>
+
+            <div class="text-center mt-3 pt-3 border-top">
+                <a href="version1/index.php" class="btn btn-outline-secondary btn-sm">Versión 1</a>
+            </div>
+            </div>
 
     </div>
 </div>
