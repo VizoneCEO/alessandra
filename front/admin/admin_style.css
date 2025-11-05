@@ -69,27 +69,12 @@
 }
 
 /* --- ESTILOS PARA EL DASHBOARD DE MATERIAS (TIPO CANVA) --- */
-
-/* La clase .semestre-column ya no se usa, así que la eliminamos o comentamos */
-/*
-.semestre-column {
-    background-color: #e9ecef;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-    min-height: 500px;
-}
-*/
-
 .materia-card {
     background-color: #fff;
     border-radius: 6px;
-    /* padding: 15px; -> Lo quitamos para que el header/body/footer se alineen */
-    margin-bottom: 0; /* Bootstrap (g-3) se encarga del espaciado */
+    margin-bottom: 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    height: 100%; /* Para que las tarjetas en un row tengan la misma altura */
-
-    /* Usamos flex para distribuir el contenido verticalmente */
+    height: 100%;
     display: flex;
     flex-direction: column;
 }
@@ -99,22 +84,24 @@
     color: var(--primary-text-color);
     margin-bottom: 10px;
     border-bottom: 1px solid #eee;
-    padding: 15px; /* Añadimos padding aquí */
+    padding: 15px;
 }
 
-/* Nuevo: Body de la tarjeta para las asignaciones */
 .materia-card-body {
-    flex-grow: 1; /* Hace que esta sección ocupe el espacio disponible */
-    padding: 0 15px; /* Solo padding horizontal */
-    overflow-y: auto; /* Scroll si hay muchos profes */
-    max-height: 200px; /* Límite para que no se haga gigante */
+    flex-grow: 1;
+    padding: 0 15px;
+    overflow-y: auto;
+    max-height: 200px;
 }
 
-/* Nuevo: Footer de la tarjeta para el formulario */
 .materia-card-footer {
     padding: 15px;
     border-top: 1px solid #f5f5f5;
     background-color: #fafafa;
+}
+
+.clase-conteo-wrapper {
+    margin-bottom: 8px;
 }
 
 .clase-card {
@@ -122,10 +109,13 @@
     border: 1px solid #dee2e6;
     border-radius: 4px;
     padding: 8px 12px;
-    margin-bottom: 8px;
+    margin-bottom: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
 }
 
 .clase-card .profesor-name {
@@ -143,27 +133,12 @@
     color: #a71d2a;
 }
 
-/* --- AÑADIR ESTO AL FINAL DE admin_style.css --- */
-
-.clase-conteo-wrapper {
-    margin-bottom: 8px; /* Espacio entre grupos de profe+conteo */
-}
-
-.clase-card {
-    margin-bottom: 0; /* Quitamos el margen inferior original */
-    /* Redondeamos solo las esquinas de arriba */
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    border-bottom: none; /* Quitamos el borde de abajo */
-}
-
 .conteo-alumnos {
     font-size: 0.85em;
     padding: 4px 12px;
-    /* Redondeamos solo las esquinas de abajo */
     border-radius: 0 0 4px 4px;
     border: 1px solid #dee2e6;
-    margin-top: -1px; /* Para que se pegue bien al 'clase-card' */
+    margin-top: -1px;
 }
 
 .conteo-alumnos-normal {
@@ -177,4 +152,42 @@
     border-color: #f5c2c7;
     color: #58151c;
     font-weight: bold;
+}
+
+
+/* --- ESTILO PARA EL SCROLL HORIZONTAL DE TABLAS DE PROFESOR (MODIFICADO) --- */
+.tabla-scroll-horizontal .table-responsive {
+    overflow-x: auto; /* Fuerza el scroll horizontal */
+}
+
+.tabla-scroll-horizontal .table {
+    min-width: 700px; /* Asegura que la tabla tenga un ancho mínimo */
+}
+
+.tabla-scroll-horizontal .table th,
+.tabla-scroll-horizontal .table td {
+    white-space: nowrap; /* Evita que el texto en celdas se parta */
+}
+
+/* 1. MÁS ANCHO EL INPUT (120px) */
+.tabla-scroll-horizontal .table td .form-control {
+    min-width: 120px; /* <-- CAMBIO: Aumentado a 120px */
+}
+
+/* 2. COLUMNA DE ALUMNO FIJA (STICKY) */
+.tabla-scroll-horizontal .table th.sticky-col,
+.tabla-scroll-horizontal .table td.sticky-col {
+    position: -webkit-sticky; /* Soporte para Safari */
+    position: sticky;
+    left: 0; /* Pégalo al borde izquierdo */
+    z-index: 2; /* Asegura que esté por encima de otras celdas */
+
+    /* El fondo es VITAL para que no se vea el texto de abajo */
+    background-color: #ffffff;
+}
+
+/* Damos un fondo más oscuro al header fijo para que combine */
+.tabla-scroll-horizontal .table th.sticky-col {
+    background-color: #f1f3f5; /* Un gris muy claro */
+    z-index: 3; /* Por encima de las celdas del body */
 }

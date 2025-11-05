@@ -51,20 +51,28 @@ if (isset($_POST['action'])) {
             }
             break;
 
-        // --- ACCIÓN: CREAR UNA NUEVA ACTIVIDAD O EXAMEN ---
+        // --- ACCIÓN: CREAR UNA NUEVA ACTIVIDAD O EXAMEN (MODIFICADA) ---
         case 'create_item':
-            if (isset($_POST['categoria_id'], $_POST['nombre_item'])) {
+            if (isset($_POST['categoria_id'], $_POST['nombre_item'], $_POST['parcial'])) {
                 $categoria_id = $_POST['categoria_id'];
                 $nombre_item = trim($_POST['nombre_item']);
+                $parcial = (int)$_POST['parcial']; // <-- 1. OBTENEMOS EL PARCIAL
 
-                if (!empty($nombre_item)) {
-                    $stmt = $conn->prepare("INSERT INTO Actividades_Evaluables (categoria_id, nombre_actividad) VALUES (?, ?)");
-                    $stmt->bind_param("is", $categoria_id, $nombre_item);
+                // Validamos que los datos sean correctos
+                if (!empty($nombre_item) && in_array($parcial, [1, 2, 3])) {
+
+                    // 2. ACTUALIZAMOS EL INSERT
+                    $stmt = $conn->prepare("INSERT INTO Actividades_Evaluables (categoria_id, nombre_actividad, parcial) VALUES (?, ?, ?)");
+                    // 3. ACTUALIZAMOS EL BIND_PARAM (de "is" a "isi")
+                    $stmt->bind_param("isi", $categoria_id, $nombre_item, $parcial);
+
                     if ($stmt->execute()) {
                         $_SESSION['message'] = ['type' => 'success', 'text' => 'Elemento creado exitosamente.'];
                     } else {
                         $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al crear el elemento.'];
                     }
+                } else {
+                     $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Datos inválidos para crear el elemento.'];
                 }
             }
             break;

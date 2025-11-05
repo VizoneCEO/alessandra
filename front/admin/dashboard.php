@@ -43,6 +43,10 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
                 <a href="dashboard.php?page=ciclos" class="list-group-item list-group-item-action bg-transparent second-text <?php echo ($page == 'ciclos') ? 'active' : ''; ?>">
                     <i class="fas fa-calendar-alt me-2"></i>Gestión de Ciclos
                 </a>
+
+                <a href="dashboard.php?page=sucursales" class="list-group-item list-group-item-action bg-transparent second-text <?php echo ($page == 'sucursales') ? 'active' : ''; ?>">
+                    <i class="fas fa-building me-2"></i>Gestión de Sucursales
+                </a>
                 <a href="dashboard.php?page=materias" class="list-group-item list-group-item-action bg-transparent second-text <?php echo ($page == 'materias') ? 'active' : ''; ?>">
                     <i class="fas fa-book me-2"></i>Gestión de Materias
                 </a>
@@ -73,8 +77,8 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
             <div class="container-fluid px-4">
                 <?php
                 // --- Cargador de contenido ---
-                // Lista blanca de páginas permitidas para seguridad
-                $allowed_pages = ['main', 'usuarios', 'ciclos', 'materias', 'asignacion'];
+                // ===== 'sucursales' AÑADIDO A LA LISTA =====
+                $allowed_pages = ['main', 'usuarios', 'ciclos', 'sucursales', 'materias', 'asignacion'];
                 if (in_array($page, $allowed_pages)) {
                     include 'body_' . $page . '.php';
                 } else {
@@ -87,7 +91,5 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
         </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
-
 </body>
 </html>

@@ -2,7 +2,6 @@
 session_start();
 require 'db_connect.php';
 
-// --- ESTA LÍNEA ES NUEVA ---
 // Le decimos a MySQLi que reporte los errores como excepciones para poder "cacharlos"
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
@@ -31,15 +30,18 @@ if (isset($_POST['action'])) {
             break;
 
         // --- ACCIÓN: ASIGNAR UN PROFESOR A UNA MATERIA (CREAR CLASE) ---
-        // --- BLOQUE 'create_clase' MODIFICADO CON TRY...CATCH ---
+        // --- BLOQUE 'create_clase' MODIFICADO ---
         case 'create_clase':
             $materia_id = $_POST['materia_id'];
             $profesor_id = $_POST['profesor_id'];
             $ciclo_id = $_POST['ciclo_id'];
+            $sucursal_id = $_POST['sucursal_id']; // <-- 1. RECIBIMOS LA SUCURSAL
 
             try {
-                $stmt = $conn->prepare("INSERT INTO Clases (materia_id, profesor_id, ciclo_id) VALUES (?, ?, ?)");
-                $stmt->bind_param("iii", $materia_id, $profesor_id, $ciclo_id);
+                // 2. ACTUALIZAMOS LA CONSULTA SQL
+                $stmt = $conn->prepare("INSERT INTO Clases (materia_id, profesor_id, ciclo_id, sucursal_id) VALUES (?, ?, ?, ?)");
+                // 3. ACTUALIZAMOS EL BIND_PARAM (de iii a iiii)
+                $stmt->bind_param("iiii", $materia_id, $profesor_id, $ciclo_id, $sucursal_id);
                 $stmt->execute();
 
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Profesor asignado a la materia correctamente.'];
@@ -48,13 +50,14 @@ if (isset($_POST['action'])) {
             } catch (mysqli_sql_exception $e) {
                 // Verificamos si el código de error es 1062 (Entrada duplicada)
                 if ($e->getCode() == 1062) {
-                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Este profesor ya está asignado a esta materia en este ciclo.'];
+                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Este profesor ya está asignado a esta materia en este ciclo y sucursal.'];
                 } else {
                     // Si es cualquier otro error, lo mostramos
                     $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al asignar el profesor: ' . $e->getMessage()];
                 }
             }
             break;
+            // --- FIN DEL BLOQUE MODIFICADO ---
 
         // --- ACCIÓN: ELIMINAR LA ASIGNACIÓN DE UN PROFESOR (ELIMINAR CLASE) ---
         case 'delete_clase':
@@ -71,8 +74,6 @@ if (isset($_POST['action'])) {
             break;
 
             // --- ACCIÓN: ELIMINAR UNA MATERIA DEL CATÁLOGO ---
-        // OJO: Esto es destructivo. Gracias al ON DELETE CASCADE, también borrará
-        // todas las clases y asignaciones relacionadas a esta materia.
         case 'delete_materia':
             $materia_id = $_POST['materia_id'];
 
@@ -90,6 +91,7 @@ if (isset($_POST['action'])) {
 }
 
 // Al terminar, siempre volvemos al dashboard de materias
+// Los filtros de ciclo y sucursal se pierden, pero eso es esperado por ahora.
 header("Location: ../front/admin/dashboard.php?page=materias");
 exit();
 ?>

@@ -2,54 +2,71 @@
 // --- 1. OBTENER DATOS ---
 require '../../back/db_connect.php';
 $alumno_id = $_SESSION['user_id'];
+$categorias_principales = ['Actividades', 'Asistencia', 'Examenes'];
 
-// --- 2. FUNCIÓN AUXILIAR PARA CALCULAR PROMEDIOS (Copiada de body_clases.php) ---
-/**
- * Función para calcular la calificación actual de una clase
- * Y obtener el desglose de promedios por categoría.
- * * @return array ['promedios' => [...], 'final' => 0.0]
- */
-function getDetalleCalificacion($conn, $inscripcion_id) {
+// --- 2. FUNCIÓN AUXILIAR PARA CALCULAR PROMEDIOS (IDÉNTICA A 'Mis Clases') ---
+function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales) {
     $clase_id_result = $conn->query("SELECT clase_id FROM Inscripciones WHERE id = $inscripcion_id");
     if ($clase_id_result->num_rows == 0) {
-        return ['promedios' => ['Actividades' => 0, 'Asistencia' => 0, 'Examenes' => 0], 'final' => 0];
+        return ['final' => 0, 'promedios_parciales' => [], 'items_desglose' => [], 'calif_por_parcial' => [1=>0, 2=>0, 3=>0]];
     }
     $clase_id = $clase_id_result->fetch_assoc()['clase_id'];
-
     $categorias_db = $conn->query("SELECT * FROM Categorias_Calificacion WHERE clase_id = $clase_id")->fetch_all(MYSQLI_ASSOC);
     $ponderaciones = [];
     foreach ($categorias_db as $cat) {
         $ponderaciones[$cat['nombre_categoria']] = $cat;
     }
-
-    $calificacion_final = 0;
-    $promedios_alumno = [];
-
-    foreach (['Actividades', 'Asistencia', 'Examenes'] as $cat_nombre) {
-        $promedio_categoria = 0;
-        $ponderacion_valor = 0;
-
-        if (isset($ponderaciones[$cat_nombre])) {
-            $categoria_id = $ponderaciones[$cat_nombre]['id'];
-            $ponderacion_valor = $ponderaciones[$cat_nombre]['ponderacion'] ?? 0;
-
-            $sql_califs = "SELECT AVG(c.calificacion_obtenida) as promedio
-                           FROM Calificaciones c
-                           JOIN Actividades_Evaluables a ON c.actividad_id = a.id
-                           WHERE c.inscripcion_id = $inscripcion_id AND a.categoria_id = $categoria_id";
-
-            $promedio_result = $conn->query($sql_califs)->fetch_assoc();
-
-            if ($promedio_result && $promedio_result['promedio'] !== null) {
-                $promedio_categoria = (float)$promedio_result['promedio'];
+    $data_return = [
+        'final' => 0.0,
+        'promedios_parciales' => [],
+        'items_desglose' => [],
+        'calif_por_parcial' => [1 => 0.0, 2 => 0.0, 3 => 0.0]
+    ];
+    foreach ($categorias_principales as $cat_nombre) {
+        $cat_id = $ponderaciones[$cat_nombre]['id'] ?? 0;
+        for ($p = 1; $p <= 3; $p++) {
+            $data_return['promedios_parciales'][$cat_nombre][$p] = 0;
+            $data_return['items_desglose'][$cat_nombre][$p] = [];
+        }
+        if ($cat_id > 0) {
+            $sql_items = "SELECT a.parcial, a.nombre_actividad, c.calificacion_obtenida 
+                          FROM Calificaciones c
+                          JOIN Actividades_Evaluables a ON c.actividad_id = a.id
+                          WHERE c.inscripcion_id = ? AND a.categoria_id = ?
+                          ORDER BY a.parcial, a.id";
+            $stmt = $conn->prepare($sql_items);
+            $stmt->bind_param("ii", $inscripcion_id, $cat_id);
+            $stmt->execute();
+            $result_items = $stmt->get_result();
+            $califs_por_parcial = [1 => [], 2 => [], 3 => []];
+            while ($item = $result_items->fetch_assoc()) {
+                $parcial = $item['parcial'];
+                $calif = (float)$item['calificacion_obtenida'];
+                $data_return['items_desglose'][$cat_nombre][$parcial][] = ['nombre' => $item['nombre_actividad'], 'calif' => $calif];
+                $califs_por_parcial[$parcial][] = $calif;
+            }
+            $stmt->close();
+            for ($p = 1; $p <= 3; $p++) {
+                if (count($califs_por_parcial[$p]) > 0) {
+                    $data_return['promedios_parciales'][$cat_nombre][$p] = array_sum($califs_por_parcial[$p]) / count($califs_por_parcial[$p]);
+                }
             }
         }
-
-        $promedios_alumno[$cat_nombre] = $promedio_categoria;
-        $calificacion_final += $promedio_categoria * ($ponderacion_valor / 100);
     }
-
-    return ['promedios' => $promedios_alumno, 'final' => $calificacion_final];
+    for ($p = 1; $p <= 3; $p++) {
+        foreach ($categorias_principales as $cat_nombre) {
+            $ponderacion = ($ponderaciones[$cat_nombre]['ponderacion'] ?? 0) / 100;
+            $promedio = $data_return['promedios_parciales'][$cat_nombre][$p] ?? 0;
+            $data_return['calif_por_parcial'][$p] += ($promedio * $ponderacion);
+        }
+    }
+    $suma_parciales = $data_return['calif_por_parcial'][1] + $data_return['calif_por_parcial'][2] + $data_return['calif_por_parcial'][3];
+    if ($suma_parciales > 0) {
+        $data_return['final'] = $suma_parciales / 3;
+    } else {
+        $data_return['final'] = 0.0;
+    }
+    return $data_return;
 }
 
 // --- 3. OBTENER EL CICLO ACTIVO ---
@@ -60,7 +77,6 @@ if ($ciclo_activo_result->num_rows > 0) {
 }
 
 // --- 4. OBTENER TODAS LAS INSCRIPCIONES DEL ALUMNO ---
-// Y decidir si usar la calif "final" (oficial) o la "actual" (calculada)
 $sql_inscripciones = "SELECT 
                             c.materia_id,
                             i.id as inscripcion_id,
@@ -68,9 +84,11 @@ $sql_inscripciones = "SELECT
                             c.ciclo_id
                        FROM Inscripciones i
                        JOIN Clases c ON i.clase_id = c.id
-                       WHERE i.alumno_id = $alumno_id";
-
-$result_inscripciones = $conn->query($sql_inscripciones);
+                       WHERE i.alumno_id = ?";
+$stmt = $conn->prepare($sql_inscripciones);
+$stmt->bind_param("i", $alumno_id);
+$stmt->execute();
+$result_inscripciones = $stmt->get_result();
 $calificaciones_alumno = [];
 
 while ($row = $result_inscripciones->fetch_assoc()) {
@@ -81,28 +99,42 @@ while ($row = $result_inscripciones->fetch_assoc()) {
         // Opción A: La calificación ya es "final" y está guardada.
         $calif = (float)$row['calificacion_final'];
     } elseif ($row['ciclo_id'] == $ciclo_activo_id) {
-        // Opción B: Es del ciclo actual, hay que calcularla.
-        $data_calif_actual = getDetalleCalificacion($conn, $row['inscripcion_id']);
-        $calif = (float)$data_calif_actual['final'];
+        // Opción B: Es del ciclo actual. Calculamos para ver si está "completa".
+        $data = getDetalleCalificacion($conn, $row['inscripcion_id'], $categorias_principales);
+
+        // --- ESTA ES LA NUEVA LÓGICA ---
+        // Verificamos si hay actividades en CADA UNO de los 3 parciales.
+        $p1_items_count = 0;
+        $p2_items_count = 0;
+        $p3_items_count = 0;
+        foreach($categorias_principales as $cat) {
+            $p1_items_count += count($data['items_desglose'][$cat][1] ?? []);
+            $p2_items_count += count($data['items_desglose'][$cat][2] ?? []);
+            $p3_items_count += count($data['items_desglose'][$cat][3] ?? []);
+        }
+
+        // Si hay items en los 3 parciales, usamos la calificación final calculada
+        if ($p1_items_count > 0 && $p2_items_count > 0 && $p3_items_count > 0) {
+             $calif = (float)$data['final'];
+        }
+        // Si no (ej. solo P1 y P2 están calificados), $calif sigue siendo NULL y mostrará '--'
     }
 
-    // Si encontramos una calificación (final o actual), la procesamos
+    // Si encontramos una calificación (final o completa), la procesamos
     if ($calif !== null) {
-        // Si no la teníamos, o si la nueva calificación es más alta (recursó y mejoró)
         if (!isset($calificaciones_alumno[$materia_id]) || $calif > $calificaciones_alumno[$materia_id]) {
             $calificaciones_alumno[$materia_id] = $calif;
         }
     }
 }
+$stmt->close();
 
 // --- 5. OBTENER EL PLAN DE ESTUDIOS COMPLETO (EL CATÁLOGO) ---
 $sql_catalogo = "SELECT id, nombre_materia, semestre 
                  FROM Materias 
                  ORDER BY semestre, nombre_materia";
-
 $result_catalogo = $conn->query($sql_catalogo);
 $plan_estudios = [];
-
 while ($row = $result_catalogo->fetch_assoc()) {
     $plan_estudios[$row['semestre']][] = $row;
 }
@@ -144,12 +176,11 @@ if (count($calificaciones_alumno) > 0) {
                                 <?php foreach ($plan_estudios[$i] as $materia): ?>
 
                                     <?php
-                                    // Buscamos si el alumno tiene calificación para esta materia
+                                    // Buscamos si el alumno tiene calificación FINAL para esta materia
                                     $calificacion = $calificaciones_alumno[$materia['id']] ?? null;
                                     $status_class = '';
 
                                     if ($calificacion !== null) {
-                                        // --- LÓGICA MODIFICADA ---
                                         // Asumimos escala 0-10, pasando con 6
                                         $status_class = ($calificacion >= 6) ? 'fw-bold' : 'text-danger fw-bold';
                                     } else {
