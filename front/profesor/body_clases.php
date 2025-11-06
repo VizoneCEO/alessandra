@@ -9,10 +9,40 @@ if (!$ciclo_activo) {
     return;
 }
 $ciclo_activo_id = $ciclo_activo['id'];
-$mis_clases = $conn->query("SELECT c.id, m.nombre_materia FROM Clases c JOIN Materias m ON c.materia_id = m.id WHERE c.profesor_id = $profesor_id AND c.ciclo_id = $ciclo_activo_id")->fetch_all(MYSQLI_ASSOC);
+
+// ===== CONSULTA MODIFICADA =====
+// Ahora traemos la sucursal y ordenamos por ella
+$sql_mis_clases = "SELECT c.id, m.nombre_materia, s.nombre_sucursal 
+                   FROM Clases c 
+                   JOIN Materias m ON c.materia_id = m.id 
+                   JOIN Sucursales s ON c.sucursal_id = s.id
+                   WHERE c.profesor_id = ? AND c.ciclo_id = ?
+                   ORDER BY s.nombre_sucursal, m.nombre_materia";
+
+$stmt_clases = $conn->prepare($sql_mis_clases);
+$stmt_clases->bind_param("ii", $profesor_id, $ciclo_activo_id);
+$stmt_clases->execute();
+$mis_clases = $stmt_clases->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt_clases->close();
+// ===============================
+
 $clase_seleccionada_id = isset($_GET['clase_id']) ? (int)$_GET['clase_id'] : null;
 
 if ($clase_seleccionada_id) {
+
+    // --- NUEVA CONSULTA: Obtenemos info de la clase seleccionada ---
+    $sql_clase_info = "SELECT m.nombre_materia, s.nombre_sucursal 
+                       FROM Clases c 
+                       JOIN Materias m ON c.materia_id = m.id 
+                       JOIN Sucursales s ON c.sucursal_id = s.id 
+                       WHERE c.id = ?";
+    $stmt_info = $conn->prepare($sql_clase_info);
+    $stmt_info->bind_param("i", $clase_seleccionada_id);
+    $stmt_info->execute();
+    $clase_info = $stmt_info->get_result()->fetch_assoc();
+    $stmt_info->close();
+    // -----------------------------------------------------------
+
     // Obtenemos los datos de la clase para trabajar
     $categorias_db = $conn->query("SELECT * FROM Categorias_Calificacion WHERE clase_id = $clase_seleccionada_id")->fetch_all(MYSQLI_ASSOC);
     $categorias = [];
@@ -67,14 +97,42 @@ if ($clase_seleccionada_id) {
 }
 ?>
 
-<h3 class="fs-4 mb-3">Mis Clases</h3>
+<h3 class="fs-4 mb-3">
+    <?php if ($clase_seleccionada_id && $clase_info): ?>
+        Gestionar: <?php echo htmlspecialchars($clase_info['nombre_materia']); ?>
+        <small class="text-muted fs-5">- <?php echo htmlspecialchars($clase_info['nombre_sucursal']); ?></small>
+    <?php else: ?>
+        Mis Clases
+    <?php endif; ?>
+</h3>
 <?php if (isset($_SESSION['message'])) { echo '<div class="alert alert-'.$_SESSION['message']['type'].' alert-dismissible fade show" role="alert">'.htmlspecialchars($_SESSION['message']['text']).'<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>'; unset($_SESSION['message']); } ?>
 
 <?php if (!$clase_seleccionada_id): ?>
-    <div class="list-group">
-        <?php foreach ($mis_clases as $clase) { echo "<a href='dashboard.php?view=clases&clase_id={$clase['id']}' class='list-group-item list-group-item-action'>Gestionar: <strong>".htmlspecialchars($clase['nombre_materia'])."</strong></a>"; } ?>
-    </div>
-<?php else: ?>
+
+    <?php
+    $current_sucursal = null;
+    if (empty($mis_clases)) {
+        echo '<div class="alert alert-secondary">No tienes clases asignadas en este ciclo activo.</div>';
+    } else {
+        foreach ($mis_clases as $clase):
+            // Si la sucursal es nueva, imprimimos un encabezado
+            if ($clase['nombre_sucursal'] !== $current_sucursal):
+                if ($current_sucursal !== null) echo '</div>'; // Cierra list-group anterior
+
+                // Imprime header de sucursal (la línea que pediste)
+                echo '<h4 class="mt-4 mb-2 text-primary border-bottom pb-2">' . htmlspecialchars($clase['nombre_sucursal']) . '</h4>';
+                echo '<div class="list-group">'; // Abre nuevo list-group
+                $current_sucursal = $clase['nombre_sucursal'];
+            endif;
+
+            // Imprime item de clase
+            echo "<a href='dashboard.php?view=clases&clase_id={$clase['id']}' class='list-group-item list-group-item-action'>Gestionar: <strong>".htmlspecialchars($clase['nombre_materia'])."</strong></a>";
+        endforeach;
+        if ($current_sucursal !== null) echo '</div>'; // Cierra el último list-group
+    }
+    ?>
+    <?php else: ?>
+
     <a href="dashboard.php?view=clases" class="btn btn-secondary mb-3"><i class="fas fa-arrow-left me-2"></i>Volver a mis clases</a>
 
     <div class="card mb-4">

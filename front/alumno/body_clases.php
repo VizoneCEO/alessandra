@@ -157,7 +157,12 @@ if ($ciclo_activo) {
             $calif_final = $data_calificacion['final'];
             $promedios_parciales = $data_calificacion['promedios_parciales'];
             $items_desglose = $data_calificacion['items_desglose'];
-            $calif_por_parcial = $data_calificacion['calif_por_parcial']; // <-- NUEVO DATO
+            $calif_por_parcial = $data_calificacion['calif_por_parcial'];
+
+            // ===== LÓGICA DE COLOR AÑADIDA =====
+            // Si es menor a 7.5 (el 7.5 ya pasa), se pone rojo
+            $final_calif_class = ($calif_final < 7.5) ? 'text-danger' : 'text-primary';
+            // =====================================
             ?>
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 shadow-sm">
@@ -236,7 +241,7 @@ if ($ciclo_activo) {
                             </li>
                             <li class="list-group-item text-center bg-light">
                                 <h6 class="mb-1 text-muted">Calificación Obtenida al Momento</h6>
-                                <h2 class="fw-bold text-primary mb-0"><?php echo number_format($calif_final, 1); ?></h2>
+                                <h2 class="fw-bold <?php echo $final_calif_class; ?> mb-0"><?php echo number_format($calif_final, 1); ?></h2>
                             </li>
                         </ul>
                     </div>

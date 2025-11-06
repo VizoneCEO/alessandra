@@ -11,59 +11,61 @@ if (!$ciclo_activo) {
 }
 $ciclo_activo_id = $ciclo_activo['id'];
 
-// Obtenemos las clases del profesor para el selector
-$mis_clases = $conn->query("SELECT c.id, m.nombre_materia FROM Clases c JOIN Materias m ON c.materia_id = m.id WHERE c.profesor_id = $profesor_id AND c.ciclo_id = $ciclo_activo_id")->fetch_all(MYSQLI_ASSOC);
+// ===== CONSULTA MODIFICADA: AHORA INCLUYE SUCURSAL =====
+$sql_mis_clases = "SELECT c.id, m.nombre_materia, s.nombre_sucursal 
+                   FROM Clases c 
+                   JOIN Materias m ON c.materia_id = m.id
+                   JOIN Sucursales s ON c.sucursal_id = s.id
+                   WHERE c.profesor_id = ? AND c.ciclo_id = ?
+                   ORDER BY s.nombre_sucursal, m.nombre_materia";
+
+$stmt_clases = $conn->prepare($sql_mis_clases);
+$stmt_clases->bind_param("ii", $profesor_id, $ciclo_activo_id);
+$stmt_clases->execute();
+$mis_clases = $stmt_clases->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt_clases->close();
+// =======================================================
 
 // Verificamos si se ha seleccionado una clase
 $clase_seleccionada_id = isset($_GET['clase_id']) ? (int)$_GET['clase_id'] : null;
 $reporte_data = [];
 $ponderaciones = []; // Mapa de [cat_nombre] => [datos]
 
-// --- 2. FUNCIÓN DE CÁLCULO (LÓGICA FINAL CORREGIDA) ---
+// --- 2. FUNCIÓN DE CÁLCULO (IDÉNTICA A 'Mis Clases') ---
 function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales) {
-
     $clase_id_result = $conn->query("SELECT clase_id FROM Inscripciones WHERE id = $inscripcion_id");
     if ($clase_id_result->num_rows == 0) {
         return ['final' => 0, 'promedios_parciales' => [], 'items_desglose' => [], 'calif_por_parcial' => [1=>0, 2=>0, 3=>0]];
     }
     $clase_id = $clase_id_result->fetch_assoc()['clase_id'];
-
     $categorias_db = $conn->query("SELECT * FROM Categorias_Calificacion WHERE clase_id = $clase_id")->fetch_all(MYSQLI_ASSOC);
     $ponderaciones = [];
     foreach ($categorias_db as $cat) {
         $ponderaciones[$cat['nombre_categoria']] = $cat;
     }
-
     $data_return = [
         'final' => 0.0,
         'promedios_parciales' => [],
         'items_desglose' => [],
         'calif_por_parcial' => [1 => 0.0, 2 => 0.0, 3 => 0.0]
     ];
-
     foreach ($categorias_principales as $cat_nombre) {
-
         $cat_id = $ponderaciones[$cat_nombre]['id'] ?? 0;
-
         for ($p = 1; $p <= 3; $p++) {
             $data_return['promedios_parciales'][$cat_nombre][$p] = 0;
             $data_return['items_desglose'][$cat_nombre][$p] = [];
         }
-
         if ($cat_id > 0) {
             $sql_items = "SELECT a.parcial, a.nombre_actividad, c.calificacion_obtenida 
                           FROM Calificaciones c
                           JOIN Actividades_Evaluables a ON c.actividad_id = a.id
                           WHERE c.inscripcion_id = ? AND a.categoria_id = ?
                           ORDER BY a.parcial, a.id";
-
             $stmt = $conn->prepare($sql_items);
             $stmt->bind_param("ii", $inscripcion_id, $cat_id);
             $stmt->execute();
             $result_items = $stmt->get_result();
-
             $califs_por_parcial = [1 => [], 2 => [], 3 => []];
-
             while ($item = $result_items->fetch_assoc()) {
                 $parcial = $item['parcial'];
                 $calif = (float)$item['calificacion_obtenida'];
@@ -71,7 +73,6 @@ function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales)
                 $califs_por_parcial[$parcial][] = $calif;
             }
             $stmt->close();
-
             for ($p = 1; $p <= 3; $p++) {
                 if (count($califs_por_parcial[$p]) > 0) {
                     $data_return['promedios_parciales'][$cat_nombre][$p] = array_sum($califs_por_parcial[$p]) / count($califs_por_parcial[$p]);
@@ -79,8 +80,6 @@ function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales)
             }
         }
     }
-
-    // Calculamos los totales ponderados por parcial
     for ($p = 1; $p <= 3; $p++) {
         foreach ($categorias_principales as $cat_nombre) {
             $ponderacion = ($ponderaciones[$cat_nombre]['ponderacion'] ?? 0) / 100;
@@ -88,18 +87,12 @@ function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales)
             $data_return['calif_por_parcial'][$p] += ($promedio * $ponderacion);
         }
     }
-
-    // --- LÓGICA DE CÁLCULO FINAL CORREGIDA ---
-    // La calificación final es el promedio de los 3 parciales.
     $suma_parciales = $data_return['calif_por_parcial'][1] + $data_return['calif_por_parcial'][2] + $data_return['calif_por_parcial'][3];
-    // Dividimos entre 3 solo si hay calificaciones (para evitar división por cero si todo está en 0)
     if ($suma_parciales > 0) {
         $data_return['final'] = $suma_parciales / 3;
     } else {
         $data_return['final'] = 0.0;
     }
-    // --- FIN DE LA CORRECCIÓN ---
-
     return $data_return;
 }
 // --- FIN DE LA FUNCIÓN ---
@@ -141,12 +134,14 @@ if ($clase_seleccionada_id) {
             <div class="input-group">
                 <select name="clase_id" class="form-select" onchange="this.form.submit()" required>
                     <option value="">-- Elige una de tus clases --</option>
+
                     <?php foreach ($mis_clases as $clase): ?>
                         <option value="<?php echo $clase['id']; ?>" <?php echo ($clase['id'] == $clase_seleccionada_id) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($clase['nombre_materia']); ?>
+                            - (<?php echo htmlspecialchars($clase['nombre_sucursal']); ?>)
                         </option>
                     <?php endforeach; ?>
-                </select>
+                    </select>
             </div>
         </form>
     </div>

@@ -102,7 +102,7 @@ while ($row = $result_inscripciones->fetch_assoc()) {
         // Opción B: Es del ciclo actual. Calculamos para ver si está "completa".
         $data = getDetalleCalificacion($conn, $row['inscripcion_id'], $categorias_principales);
 
-        // --- ESTA ES LA NUEVA LÓGICA ---
+        // --- ESTA ES LA LÓGICA ---
         // Verificamos si hay actividades en CADA UNO de los 3 parciales.
         $p1_items_count = 0;
         $p2_items_count = 0;
@@ -144,6 +144,11 @@ $promedio_general = 0;
 if (count($calificaciones_alumno) > 0) {
     $promedio_general = array_sum($calificaciones_alumno) / count($calificaciones_alumno);
 }
+
+// ===== NUEVA LÓGICA DE COLOR PARA PROMEDIO GENERAL =====
+// Si es menor a 8 (el 8 ya pasa), se pone rojo
+$gpa_class = ($promedio_general < 8.0) ? 'text-danger' : 'text-primary';
+// ========================================================
 ?>
 
 <div class="row align-items-center mb-3">
@@ -154,7 +159,7 @@ if (count($calificaciones_alumno) > 0) {
         <div class="card bg-light">
             <div class="card-body p-2 text-center">
                 <h6 class="card-title text-muted mb-0">Promedio General</h6>
-                <h3 class="card-text fw-bold text-primary mb-0"><?php echo number_format($promedio_general, 2); ?></h3>
+                <h3 class="card-text fw-bold <?php echo $gpa_class; ?> mb-0"><?php echo number_format($promedio_general, 2); ?></h3>
             </div>
         </div>
     </div>
@@ -181,8 +186,9 @@ if (count($calificaciones_alumno) > 0) {
                                     $status_class = '';
 
                                     if ($calificacion !== null) {
-                                        // Asumimos escala 0-10, pasando con 6
-                                        $status_class = ($calificacion >= 6) ? 'fw-bold' : 'text-danger fw-bold';
+                                        // ===== LÓGICA DE COLOR DE MATERIA MODIFICADA =====
+                                        // Si es menor a 7.5 (el 7.5 ya pasa), se pone rojo
+                                        $status_class = ($calificacion >= 7.5) ? 'fw-bold' : 'text-danger fw-bold';
                                     } else {
                                         $calificacion = '--';
                                         $status_class = 'text-muted';
