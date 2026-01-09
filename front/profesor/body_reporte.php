@@ -6,7 +6,7 @@ $ciclo_activo = $conn->query("SELECT id FROM Ciclos_Escolares WHERE estado = 'ac
 $categorias_principales = ['Actividades', 'Asistencia', 'Examenes']; // Definición global
 
 if (!$ciclo_activo) {
-    echo '<div class="alert alert-warning">No hay un ciclo escolar activo para generar reportes.</div>';
+    echo '<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50" role="alert"><span class="font-medium">Atención:</span> No hay un ciclo escolar activo para generar reportes.</div>';
     return;
 }
 $ciclo_activo_id = $ciclo_activo['id'];
@@ -27,15 +27,16 @@ $stmt_clases->close();
 // =======================================================
 
 // Verificamos si se ha seleccionado una clase
-$clase_seleccionada_id = isset($_GET['clase_id']) ? (int)$_GET['clase_id'] : null;
+$clase_seleccionada_id = isset($_GET['clase_id']) ? (int) $_GET['clase_id'] : null;
 $reporte_data = [];
 $ponderaciones = []; // Mapa de [cat_nombre] => [datos]
 
 // --- 2. FUNCIÓN DE CÁLCULO (IDÉNTICA A 'Mis Clases') ---
-function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales) {
+function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales)
+{
     $clase_id_result = $conn->query("SELECT clase_id FROM Inscripciones WHERE id = $inscripcion_id");
     if ($clase_id_result->num_rows == 0) {
-        return ['final' => 0, 'promedios_parciales' => [], 'items_desglose' => [], 'calif_por_parcial' => [1=>0, 2=>0, 3=>0]];
+        return ['final' => 0, 'promedios_parciales' => [], 'items_desglose' => [], 'calif_por_parcial' => [1 => 0, 2 => 0, 3 => 0]];
     }
     $clase_id = $clase_id_result->fetch_assoc()['clase_id'];
     $categorias_db = $conn->query("SELECT * FROM Categorias_Calificacion WHERE clase_id = $clase_id")->fetch_all(MYSQLI_ASSOC);
@@ -68,7 +69,7 @@ function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales)
             $califs_por_parcial = [1 => [], 2 => [], 3 => []];
             while ($item = $result_items->fetch_assoc()) {
                 $parcial = $item['parcial'];
-                $calif = (float)$item['calificacion_obtenida'];
+                $calif = (float) $item['calificacion_obtenida'];
                 $data_return['items_desglose'][$cat_nombre][$parcial][] = ['nombre' => $item['nombre_actividad'], 'calif' => $calif];
                 $califs_por_parcial[$parcial][] = $calif;
             }
@@ -124,92 +125,136 @@ if ($clase_seleccionada_id) {
 }
 ?>
 
-<h3 class="fs-4 mb-3">Reporte General de Calificaciones</h3>
+<div class="mb-8">
+    <h3 class="font-serif text-3xl text-zinc-900 mb-2">Reporte Ejecutivo</h3>
+    <p class="text-zinc-500 font-light text-sm">Resumen de Calificaciones Finales y Promedios</p>
+</div>
 
-<div class="card mb-4">
-    <div class="card-header"><i class="fas fa-filter me-1"></i>Selecciona una materia para ver el reporte</div>
-    <div class="card-body">
-        <form method="GET">
+<!-- Selector de Materia -->
+<div class="bg-white rounded-xl shadow-sm border border-zinc-100 p-6 mb-8 flex items-center justify-between">
+    <div class="flex items-center text-zinc-500 text-sm font-medium">
+        <div class="h-8 w-8 bg-zinc-100 rounded-full flex items-center justify-center mr-3">
+            <i class="fas fa-filter text-zinc-400"></i>
+        </div>
+        Selecciona una materia:
+    </div>
+    <div class="flex-1 max-w-md">
+        <form method="GET" class="m-0">
             <input type="hidden" name="view" value="reporte">
-            <div class="input-group">
-                <select name="clase_id" class="form-select" onchange="this.form.submit()" required>
+            <div class="relative">
+                <select name="clase_id"
+                    class="appearance-none block w-full px-4 py-3 pr-8 border border-zinc-200 rounded-lg text-sm focus:outline-none focus:border-zinc-900 bg-white text-zinc-800 transition-colors"
+                    onchange="this.form.submit()" required>
                     <option value="">-- Elige una de tus clases --</option>
-
                     <?php foreach ($mis_clases as $clase): ?>
                         <option value="<?php echo $clase['id']; ?>" <?php echo ($clase['id'] == $clase_seleccionada_id) ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars($clase['nombre_materia']); ?>
-                            - (<?php echo htmlspecialchars($clase['nombre_sucursal']); ?>)
+                            - <?php echo htmlspecialchars($clase['nombre_sucursal']); ?>
                         </option>
                     <?php endforeach; ?>
-                    </select>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-zinc-500">
+                    <i class="fas fa-chevron-down text-xs"></i>
+                </div>
             </div>
         </form>
     </div>
 </div>
 
 <?php if ($clase_seleccionada_id && !empty($reporte_data)): ?>
-<div class="card">
-    <div class="card-header"><i class="fas fa-chart-bar me-1"></i>Matriz de Calificaciones Finales</div>
-    <div class="card-body">
-        <div class="tabla-scroll-horizontal">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover table-bordered">
-                    <thead class="table-dark text-center">
-                        <tr>
-                            <th rowspan="2" class="align-middle sticky-col">Alumno</th>
-                            <?php foreach ($categorias_principales as $cat_nombre): ?>
-                                <th colspan="3">
-                                    <?php echo $cat_nombre; ?>
-                                    <small class="d-block">(<?php echo number_format($ponderaciones[$cat_nombre]['ponderacion'] ?? 0, 2); ?>%)</small>
-                                </th>
-                            <?php endforeach; ?>
 
-                            <th rowspan="2" class="align-middle">Prom. P1</th>
-                            <th rowspan="2" class="align-middle">Prom. P2</th>
-                            <th rowspan="2" class="align-middle">Prom. P3</th>
+    <!-- Matriz de Resultados -->
+    <div class="bg-white rounded-xl shadow-lg border border-zinc-100 overflow-hidden relative">
+        <div class="px-6 py-4 bg-zinc-950 text-white flex justify-between items-center border-b border-zinc-900">
+            <h5 class="font-serif text-lg italic">Matriz de Rendimiento Académico</h5>
+            <button onclick="window.print()"
+                class="text-[10px] uppercase font-bold tracking-widest text-zinc-400 hover:text-white transition-colors">
+                <i class="fas fa-print mr-1"></i> Imprimir
+            </button>
+        </div>
 
-                            <th rowspan="2" class="align-middle">Calificación Final</th>
-                        </tr>
-                        <tr>
-                            <?php foreach ($categorias_principales as $cat_nombre): ?>
-                                <th>P1</th>
-                                <th>P2</th>
-                                <th>P3</th>
-                            <?php endforeach; ?>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($reporte_data as $row): ?>
-                        <tr>
-                            <td class="fw-bold sticky-col"><?php echo htmlspecialchars($row['nombre']); ?></td>
+        <div class="overflow-x-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse whitespace-nowrap">
+                <thead>
+                    <tr class="bg-zinc-900 text-white text-[10px] uppercase tracking-wider font-light">
+                        <th rowspan="2" class="px-6 py-3 sticky left-0 z-20 bg-zinc-900 border-r border-zinc-800 shadow-xl">
+                            Alumno</th>
+                        <?php foreach ($categorias_principales as $cat_nombre): ?>
+                            <th colspan="3" class="px-4 py-2 text-center border-r border-zinc-800 border-b border-zinc-800">
+                                <?php echo $cat_nombre; ?>
+                                <span
+                                    class="opacity-50 block text-[9px]">(<?php echo number_format($ponderaciones[$cat_nombre]['ponderacion'] ?? 0, 0); ?>%)</span>
+                            </th>
+                        <?php endforeach; ?>
 
-                            <?php $data = $row['data']; // Obtenemos los datos calculados ?>
+                        <th rowspan="2" class="px-4 py-3 text-center border-r border-zinc-800 bg-zinc-900/50">Prom. P1</th>
+                        <th rowspan="2" class="px-4 py-3 text-center border-r border-zinc-800 bg-zinc-900/50">Prom. P2</th>
+                        <th rowspan="2" class="px-4 py-3 text-center border-r border-zinc-800 bg-zinc-900/50">Prom. P3</th>
+                        <th rowspan="2" class="px-6 py-3 text-center font-bold bg-zinc-950">Final</th>
+                    </tr>
+                    <tr class="bg-zinc-900 text-zinc-400 text-[9px] uppercase tracking-wider">
+                        <?php foreach ($categorias_principales as $cat_nombre): ?>
+                            <th class="px-2 py-1 text-center border-r border-zinc-800">P1</th>
+                            <th class="px-2 py-1 text-center border-r border-zinc-800">P2</th>
+                            <th class="px-2 py-1 text-center border-r border-zinc-800">P3</th>
+                        <?php endforeach; ?>
+                    </tr>
+                </thead>
+                <tbody class="text-sm divide-y divide-zinc-100">
+                    <?php foreach ($reporte_data as $row): ?>
+                        <tr class="hover:bg-zinc-50 transition-colors group">
+                            <td
+                                class="px-6 py-3 font-medium text-zinc-800 sticky left-0 bg-white group-hover:bg-zinc-50 border-r border-zinc-100 shadow-sm z-10">
+                                <?php echo htmlspecialchars($row['nombre']); ?>
+                            </td>
+
+                            <?php $data = $row['data']; ?>
 
                             <?php foreach ($categorias_principales as $cat_nombre): ?>
                                 <?php for ($p = 1; $p <= 3; $p++): ?>
-                                    <?php
-                                    // Buscamos el promedio [cat_nombre][parcial]
-                                    $promedio_parcial = $data['promedios_parciales'][$cat_nombre][$p] ?? 0;
-                                    ?>
-                                    <td class="text-center"><?php echo number_format($promedio_parcial, 2); ?></td>
+                                    <?php $promedio_parcial = $data['promedios_parciales'][$cat_nombre][$p] ?? 0; ?>
+                                    <td class="px-2 py-3 text-center border-r border-zinc-50 text-zinc-500 font-mono text-xs">
+                                        <?php echo ($promedio_parcial > 0) ? number_format($promedio_parcial, 1) : '-'; ?>
+                                    </td>
                                 <?php endfor; ?>
                             <?php endforeach; ?>
 
-                            <td class="text-center table-success fw-bold"><?php echo number_format($data['calif_por_parcial'][1], 2); ?></td>
-                            <td class="text-center table-success fw-bold"><?php echo number_format($data['calif_por_parcial'][2], 2); ?></td>
-                            <td class="text-center table-success fw-bold"><?php echo number_format($data['calif_por_parcial'][3], 2); ?></td>
+                            <!-- Promedios Parciales -->
+                            <td
+                                class="px-4 py-3 text-center border-r border-zinc-100 bg-zinc-50/50 font-mono text-xs text-zinc-600">
+                                <?php echo number_format($data['calif_por_parcial'][1], 1); ?>
+                            </td>
+                            <td
+                                class="px-4 py-3 text-center border-r border-zinc-100 bg-zinc-50/50 font-mono text-xs text-zinc-600">
+                                <?php echo number_format($data['calif_por_parcial'][2], 1); ?>
+                            </td>
+                            <td
+                                class="px-4 py-3 text-center border-r border-zinc-100 bg-zinc-50/50 font-mono text-xs text-zinc-600">
+                                <?php echo number_format($data['calif_por_parcial'][3], 1); ?>
+                            </td>
 
-                            <td class="text-center fw-bold fs-5 text-primary">
-                                <?php echo number_format($data['final'], 2); ?>
+                            <!-- Final -->
+                            <?php
+                            $final = $data['final'];
+                            // Lógica de color condicional
+                            $finalClass = ($final < 7.5) ? 'text-rose-600' : 'text-zinc-900';
+                            if ($final == 0)
+                                $finalClass = 'text-zinc-300';
+                            ?>
+                            <td
+                                class="px-6 py-3 text-center bg-zinc-50 border-l border-zinc-200 font-serif font-bold text-lg <?php echo $finalClass; ?>">
+                                <?php echo number_format($final, 1); ?>
                             </td>
                         </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-                </div>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
     </div>
-</div>
+
 <?php elseif ($clase_seleccionada_id): ?>
-    <div class="alert alert-secondary">No hay alumnos inscritos en esta clase para generar un reporte.</div>
+    <div class="p-12 text-center border rounded-xl bg-zinc-50 border-zinc-200">
+        <i class="fas fa-users-slash text-4xl text-zinc-300 mb-4"></i>
+        <p class="text-zinc-500">No hay alumnos inscritos en esta clase para generar un reporte.</p>
+    </div>
 <?php endif; ?>

@@ -35,13 +35,14 @@ if (isset($_POST['action'])) {
             $materia_id = $_POST['materia_id'];
             $profesor_id = $_POST['profesor_id'];
             $ciclo_id = $_POST['ciclo_id'];
-            $sucursal_id = $_POST['sucursal_id']; // <-- 1. RECIBIMOS LA SUCURSAL
+            $sucursal_id = $_POST['sucursal_id'];
+            $grupo = $_POST['grupo']; // <-- 1. RECIBIMOS EL GRUPO
 
             try {
                 // 2. ACTUALIZAMOS LA CONSULTA SQL
-                $stmt = $conn->prepare("INSERT INTO Clases (materia_id, profesor_id, ciclo_id, sucursal_id) VALUES (?, ?, ?, ?)");
-                // 3. ACTUALIZAMOS EL BIND_PARAM (de iii a iiii)
-                $stmt->bind_param("iiii", $materia_id, $profesor_id, $ciclo_id, $sucursal_id);
+                $stmt = $conn->prepare("INSERT INTO Clases (materia_id, profesor_id, ciclo_id, sucursal_id, grupo) VALUES (?, ?, ?, ?, ?)");
+                // 3. ACTUALIZAMOS EL BIND_PARAM (de iiii a iiiis)
+                $stmt->bind_param("iiiis", $materia_id, $profesor_id, $ciclo_id, $sucursal_id, $grupo);
                 $stmt->execute();
 
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Profesor asignado a la materia correctamente.'];
@@ -50,14 +51,14 @@ if (isset($_POST['action'])) {
             } catch (mysqli_sql_exception $e) {
                 // Verificamos si el código de error es 1062 (Entrada duplicada)
                 if ($e->getCode() == 1062) {
-                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Este profesor ya está asignado a esta materia en este ciclo y sucursal.'];
+                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Este profesor ya está asignado a esta materia en este grupo, ciclo y sucursal.'];
                 } else {
                     // Si es cualquier otro error, lo mostramos
                     $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al asignar el profesor: ' . $e->getMessage()];
                 }
             }
             break;
-            // --- FIN DEL BLOQUE MODIFICADO ---
+        // --- FIN DEL BLOQUE MODIFICADO ---
 
         // --- ACCIÓN: ELIMINAR LA ASIGNACIÓN DE UN PROFESOR (ELIMINAR CLASE) ---
         case 'delete_clase':
@@ -65,7 +66,7 @@ if (isset($_POST['action'])) {
 
             $stmt = $conn->prepare("DELETE FROM Clases WHERE id = ?");
             $stmt->bind_param("i", $clase_id);
-             if ($stmt->execute()) {
+            if ($stmt->execute()) {
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Asignación de profesor eliminada.'];
             } else {
                 $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al eliminar la asignación.'];
@@ -73,13 +74,13 @@ if (isset($_POST['action'])) {
             $stmt->close();
             break;
 
-            // --- ACCIÓN: ELIMINAR UNA MATERIA DEL CATÁLOGO ---
+        // --- ACCIÓN: ELIMINAR UNA MATERIA DEL CATÁLOGO ---
         case 'delete_materia':
             $materia_id = $_POST['materia_id'];
 
             $stmt = $conn->prepare("DELETE FROM Materias WHERE id = ?");
             $stmt->bind_param("i", $materia_id);
-             if ($stmt->execute()) {
+            if ($stmt->execute()) {
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Materia eliminada del catálogo permanentemente.'];
             } else {
                 $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al eliminar la materia.'];

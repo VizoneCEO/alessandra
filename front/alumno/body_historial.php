@@ -5,10 +5,11 @@ $alumno_id = $_SESSION['user_id'];
 $categorias_principales = ['Actividades', 'Asistencia', 'Examenes'];
 
 // --- 2. FUNCIÓN AUXILIAR PARA CALCULAR PROMEDIOS (IDÉNTICA A 'Mis Clases') ---
-function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales) {
+function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales)
+{
     $clase_id_result = $conn->query("SELECT clase_id FROM Inscripciones WHERE id = $inscripcion_id");
     if ($clase_id_result->num_rows == 0) {
-        return ['final' => 0, 'promedios_parciales' => [], 'items_desglose' => [], 'calif_por_parcial' => [1=>0, 2=>0, 3=>0]];
+        return ['final' => 0, 'promedios_parciales' => [], 'items_desglose' => [], 'calif_por_parcial' => [1 => 0, 2 => 0, 3 => 0]];
     }
     $clase_id = $clase_id_result->fetch_assoc()['clase_id'];
     $categorias_db = $conn->query("SELECT * FROM Categorias_Calificacion WHERE clase_id = $clase_id")->fetch_all(MYSQLI_ASSOC);
@@ -41,7 +42,7 @@ function getDetalleCalificacion($conn, $inscripcion_id, $categorias_principales)
             $califs_por_parcial = [1 => [], 2 => [], 3 => []];
             while ($item = $result_items->fetch_assoc()) {
                 $parcial = $item['parcial'];
-                $calif = (float)$item['calificacion_obtenida'];
+                $calif = (float) $item['calificacion_obtenida'];
                 $data_return['items_desglose'][$cat_nombre][$parcial][] = ['nombre' => $item['nombre_actividad'], 'calif' => $calif];
                 $califs_por_parcial[$parcial][] = $calif;
             }
@@ -97,7 +98,7 @@ while ($row = $result_inscripciones->fetch_assoc()) {
 
     if ($row['calificacion_final'] !== null) {
         // Opción A: La calificación ya es "final" y está guardada.
-        $calif = (float)$row['calificacion_final'];
+        $calif = (float) $row['calificacion_final'];
     } elseif ($row['ciclo_id'] == $ciclo_activo_id) {
         // Opción B: Es del ciclo actual. Calculamos para ver si está "completa".
         $data = getDetalleCalificacion($conn, $row['inscripcion_id'], $categorias_principales);
@@ -107,7 +108,7 @@ while ($row = $result_inscripciones->fetch_assoc()) {
         $p1_items_count = 0;
         $p2_items_count = 0;
         $p3_items_count = 0;
-        foreach($categorias_principales as $cat) {
+        foreach ($categorias_principales as $cat) {
             $p1_items_count += count($data['items_desglose'][$cat][1] ?? []);
             $p2_items_count += count($data['items_desglose'][$cat][2] ?? []);
             $p3_items_count += count($data['items_desglose'][$cat][3] ?? []);
@@ -115,7 +116,7 @@ while ($row = $result_inscripciones->fetch_assoc()) {
 
         // Si hay items en los 3 parciales, usamos la calificación final calculada
         if ($p1_items_count > 0 && $p2_items_count > 0 && $p3_items_count > 0) {
-             $calif = (float)$data['final'];
+            $calif = (float) $data['final'];
         }
         // Si no (ej. solo P1 y P2 están calificados), $calif sigue siendo NULL y mostrará '--'
     }
@@ -146,67 +147,76 @@ if (count($calificaciones_alumno) > 0) {
 }
 
 // ===== NUEVA LÓGICA DE COLOR PARA PROMEDIO GENERAL =====
-// Si es menor a 8 (el 8 ya pasa), se pone rojo
-$gpa_class = ($promedio_general < 8.0) ? 'text-danger' : 'text-primary';
+// Si es menor a 8 (el 8 ya pasa), se pone rosa
+$gpa_class = ($promedio_general < 8.0) ? 'text-rose-600' : 'text-zinc-900';
 // ========================================================
 ?>
 
-<div class="row align-items-center mb-3">
-    <div class="col-md-8">
-        <h3 class="fs-4 mb-0">Avance de Carrera (Tira de Materias)</h3>
+<!-- Header y Widget GPA -->
+<div class="flex flex-col md:flex-row items-end justify-between mb-10 pb-6 border-b border-zinc-200">
+    <div>
+        <h3 class="font-serif text-3xl text-zinc-900 mb-2">Historial Académico</h3>
+        <p class="text-zinc-500 font-light text-sm">Avance de Carrera (Tira de Materias)</p>
     </div>
-    <div class="col-md-4 text-md-end">
-        <div class="card bg-light">
-            <div class="card-body p-2 text-center">
-                <h6 class="card-title text-muted mb-0">Promedio General</h6>
-                <h3 class="card-text fw-bold <?php echo $gpa_class; ?> mb-0"><?php echo number_format($promedio_general, 2); ?></h3>
-            </div>
+
+    <!-- Widget GPA Minimalista -->
+    <div class="mt-6 md:mt-0 flex items-center bg-white border border-zinc-100 shadow-sm rounded-lg px-6 py-4">
+        <div class="mr-4 text-right">
+            <p class="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">Promedio Global</p>
+            <p class="text-xs text-zinc-300 font-light">Acumulado</p>
+        </div>
+        <div class="text-4xl font-serif font-bold <?php echo $gpa_class; ?>">
+            <?php echo number_format($promedio_general, 2); ?>
         </div>
     </div>
 </div>
 
 <?php if (empty($plan_estudios)): ?>
-    <div class="alert alert-secondary">No hay un plan de estudios (catálogo de materias) registrado en el sistema.</div>
+    <div class="p-4 bg-zinc-100 text-zinc-600 rounded text-sm italic">No hay un plan de estudios (catálogo de materias)
+        registrado en el sistema.</div>
 <?php else: ?>
-    <div class="row">
+    <!-- GRID DE SEMESTRES (Timeline Vertical) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <?php for ($i = 1; $i <= 6; $i++): ?>
-            <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card h-100">
-                    <div class="card-header">
-                        <h5 class="mb-0">Semestre <?php echo $i; ?></h5>
-                    </div>
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush">
-                            <?php if (isset($plan_estudios[$i])): ?>
-                                <?php foreach ($plan_estudios[$i] as $materia): ?>
+            <div
+                class="bg-white rounded-lg border border-zinc-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col h-full">
+                <!-- Header Semestre -->
+                <div class="px-6 py-4 bg-zinc-50 border-b border-zinc-100 flex items-center justify-between">
+                    <h5 class="text-sm font-bold uppercase tracking-widest text-zinc-800">Semestre <?php echo $i; ?></h5>
+                    <span class="h-2 w-2 rounded-full bg-zinc-300"></span>
+                </div>
 
-                                    <?php
-                                    // Buscamos si el alumno tiene calificación FINAL para esta materia
-                                    $calificacion = $calificaciones_alumno[$materia['id']] ?? null;
-                                    $status_class = '';
+                <div class="flex-1 p-0">
+                    <ul class="divide-y divide-zinc-50">
+                        <?php if (isset($plan_estudios[$i])): ?>
+                            <?php foreach ($plan_estudios[$i] as $materia): ?>
 
-                                    if ($calificacion !== null) {
-                                        // ===== LÓGICA DE COLOR DE MATERIA MODIFICADA =====
-                                        // Si es menor a 7.5 (el 7.5 ya pasa), se pone rojo
-                                        $status_class = ($calificacion >= 7.5) ? 'fw-bold' : 'text-danger fw-bold';
-                                    } else {
-                                        $calificacion = '--';
-                                        $status_class = 'text-muted';
-                                    }
-                                    ?>
+                                <?php
+                                // Buscamos si el alumno tiene calificación FINAL para esta materia
+                                $calificacion = $calificaciones_alumno[$materia['id']] ?? null;
+                                $status_class = '';
 
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <span><?php echo htmlspecialchars($materia['nombre_materia']); ?></span>
-                                        <span class="<?php echo $status_class; ?>">
-                                            <?php echo ($calificacion !== '--') ? number_format($calificacion, 1) : $calificacion; ?>
-                                        </span>
-                                    </li>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <li class="list-group-item text-muted">No hay materias registradas para este semestre.</li>
-                            <?php endif; ?>
-                        </ul>
-                    </div>
+                                if ($calificacion !== null) {
+                                    // ===== LÓGICA DE COLOR DE MATERIA MODIFICADA =====
+                                    $status_class = ($calificacion >= 7.5) ? 'text-zinc-900 font-bold' : 'text-rose-600 font-bold';
+                                } else {
+                                    $calificacion = '--';
+                                    $status_class = 'text-zinc-300 font-light';
+                                }
+                                ?>
+
+                                <li class="px-6 py-4 flex justify-between items-center hover:bg-zinc-50/50 transition-colors">
+                                    <span
+                                        class="text-sm text-zinc-600 font-light"><?php echo htmlspecialchars($materia['nombre_materia']); ?></span>
+                                    <span class="font-mono text-sm <?php echo $status_class; ?>">
+                                        <?php echo ($calificacion !== '--') ? number_format($calificacion, 1) : $calificacion; ?>
+                                    </span>
+                                </li>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <li class="px-6 py-4 text-xs text-zinc-400 italic">No hay materias registradas.</li>
+                        <?php endif; ?>
+                    </ul>
                 </div>
             </div>
         <?php endfor; ?>

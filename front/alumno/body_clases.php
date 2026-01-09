@@ -141,14 +141,18 @@ if ($ciclo_activo) {
 }
 ?>
 
-<h3 class="fs-4 mb-3">Mis Clases (Ciclo Actual)</h3>
+<div class="mb-8">
+    <h3 class="font-serif text-3xl text-zinc-900 mb-2">Mis Clases</h3>
+    <p class="text-zinc-500 font-light text-sm">Ciclo Escolar Actual</p>
+</div>
 
 <?php if (!$ciclo_activo): ?>
-    <div class="alert alert-warning">No hay ningún ciclo escolar activo en este momento.</div>
+    <div class="p-4 bg-amber-50 text-amber-800 border-l-4 border-amber-500 rounded text-sm">No hay ningún ciclo escolar activo en este momento.</div>
 <?php elseif (empty($mis_clases)): ?>
-    <div class="alert alert-secondary">No estás inscrito a ninguna clase en el ciclo escolar activo.</div>
+    <div class="p-4 bg-white shadow-sm rounded border-l-4 border-zinc-300 text-zinc-600 text-sm">No estás inscrito a ninguna clase en el ciclo escolar activo.</div>
 <?php else: ?>
-    <div class="row g-3">
+    <!-- GRID DE TARJETAS TAILWIND -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         <?php foreach ($mis_clases as $clase): ?>
             <?php
             // Calculamos la calificación actual y el desglose
@@ -159,112 +163,113 @@ if ($ciclo_activo) {
             $items_desglose = $data_calificacion['items_desglose'];
             $calif_por_parcial = $data_calificacion['calif_por_parcial'];
 
-            // ===== LÓGICA DE COLOR AÑADIDA =====
-            // Si es menor a 7.5 (el 7.5 ya pasa), se pone rojo
-            $final_calif_class = ($calif_final < 7.5) ? 'text-danger' : 'text-primary';
-            // =====================================
+            // ===== LÓGICA DE COLOR AÑADIDA (Minimalista) =====
+            // Si es menor a 7.5 (el 7.5 ya pasa), se pone rosa rojizo
+            $final_calif_class = ($calif_final < 7.5) ? 'text-rose-600' : 'text-emerald-700'; // O text-zinc-900 si prefieres neutral
             ?>
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-header bg-dark text-white">
-                        <h5 class="card-title mb-0"><?php echo htmlspecialchars($clase['nombre_materia']); ?></h5>
-                        <small class="text-white-50">
-                            <i class="fas fa-user-tie me-1"></i>
-                            <?php echo htmlspecialchars($clase['profesor_nombre']); ?>
-                        </small>
-                    </div>
-                    <div class="card-body p-0">
-                        <ul class="list-group list-group-flush">
+            <div class="bg-white rounded-xl shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col h-full overflow-hidden border border-zinc-50">
+                <!-- Card Header Limpio -->
+                <div class="p-6 border-b border-zinc-50">
+                    <h5 class="font-serif text-xl font-bold text-zinc-900 mb-1 leading-tight">
+                        <?php echo htmlspecialchars($clase['nombre_materia']); ?>
+                    </h5>
+                    <p class="text-sm italic text-zinc-500 font-light flex items-center">
+                        <i class="fas fa-chalkboard-teacher mr-2 text-zinc-300"></i>
+                        <?php echo htmlspecialchars($clase['profesor_nombre']); ?>
+                    </p>
+                </div>
 
-                            <?php foreach ($categorias_principales as $cat_nombre): ?>
+                <div class="flex-1 p-0">
+                    <table class="w-full text-left text-sm">
+                        <!-- Categorías Loop -->
+                        <?php foreach ($categorias_principales as $cat_nombre): ?>
+                            <?php
+                            $cat_slug = strtolower($cat_nombre);
+                            $cat_icon = ['Actividades' => 'fa-tasks', 'Asistencia' => 'fa-user-check', 'Examenes' => 'fa-file-alt'][$cat_nombre];
+                            ?>
+                            <tr class="bg-zinc-50/50 text-xs uppercase tracking-wide text-zinc-400 font-semibold">
+                                <td colspan="3" class="px-6 py-2 pt-4">
+                                    <i class="fas <?php echo $cat_icon; ?> mr-1 opacity-70"></i> 
+                                    <?php echo $cat_nombre; ?>
+                                </td>
+                            </tr>
+
+                            <?php for ($p = 1; $p <= 3; $p++): ?>
                                 <?php
-                                $cat_slug = strtolower($cat_nombre);
-                                $cat_icon = ['Actividades' => 'fa-tasks', 'Asistencia' => 'fa-user-check', 'Examenes' => 'fa-file-alt'][$cat_nombre];
+                                $promedio = $promedios_parciales[$cat_nombre][$p] ?? 0;
+                                $items = $items_desglose[$cat_nombre][$p] ?? [];
+                                $titulo_modal = "$cat_nombre - Parcial $p";
                                 ?>
-                                <li class="list-group-item list-group-item-light d-flex justify-content-between align-items-center">
-                                    <strong>
-                                        <i class="fas <?php echo $cat_icon; ?> me-2 text-muted"></i>
-                                        <?php echo $cat_nombre; ?>
-                                    </strong>
-                                </li>
-
-                                <?php // Bucle de los 3 parciales para esta categoría ?>
-                                <?php for ($p = 1; $p <= 3; $p++): ?>
-                                    <?php
-                                    $promedio = $promedios_parciales[$cat_nombre][$p] ?? 0;
-                                    $items = $items_desglose[$cat_nombre][$p] ?? [];
-                                    $titulo_modal = "$cat_nombre - Parcial $p";
-                                    ?>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center ps-4">
-                                        <div>
-                                            Parcial <?php echo $p; ?>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-1 ms-2"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#califModal"
-                                                    data-titulo="<?php echo htmlspecialchars($titulo_modal); ?>"
-                                                    data-items='<?php echo json_encode($items); ?>'
-                                                    <?php echo empty($items) ? 'disabled' : ''; ?>>
-                                                <i class="fas fa-eye"></i> Ver
-                                            </button>
-                                        </div>
-                                        <span class="badge bg-primary rounded-pill fs-6">
+                                <tr class="border-b border-zinc-50 last:border-0 hover:bg-zinc-50 transition-colors">
+                                    <td class="px-6 py-2 text-zinc-600 font-light w-1/3">Parcial <?php echo $p; ?></td>
+                                    
+                                    <!-- Botón 'Ver' como Ojo Minimalista -->
+                                    <td class="px-6 py-2 text-center w-1/3">
+                                        <button type="button" 
+                                                class="text-zinc-300 hover:text-zinc-800 transition-colors focus:outline-none"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#califModal"
+                                                data-titulo="<?php echo htmlspecialchars($titulo_modal); ?>"
+                                                data-items='<?php echo json_encode($items); ?>'
+                                                <?php echo empty($items) ? 'disabled' : ''; ?>
+                                                title="Ver Detalles">
+                                            <i class="fas fa-eye <?php echo empty($items) ? 'opacity-30 cursor-not-allowed' : ''; ?>"></i>
+                                        </button>
+                                    </td>
+                                    
+                                    <td class="px-6 py-2 text-right">
+                                        <span class="font-mono text-zinc-700 font-medium">
                                             <?php echo number_format($promedio, 1); ?>
                                         </span>
-                                    </li>
-                                <?php endfor; ?>
-                            <?php endforeach; ?>
-
-                            <li class="list-group-item list-group-item-light d-flex justify-content-between align-items-center">
-                                <strong>
-                                    <i class="fas fa-calculator me-2 text-muted"></i>
-                                    Totales Parciales
-                                </strong>
-                            </li>
-
-                            <li class="list-group-item d-flex justify-content-between align-items-center ps-4">
-                                Calificación Parcial 1
-                                <span class="badge bg-success rounded-pill fs-6">
-                                    <?php echo number_format($calif_por_parcial[1], 1); ?>
-                                </span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center ps-4">
-                                Calificación Parcial 2
-                                <span class="badge bg-success rounded-pill fs-6">
-                                    <?php echo number_format($calif_por_parcial[2], 1); ?>
-                                </span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center ps-4">
-                                Calificación Parcial 3
-                                <span class="badge bg-success rounded-pill fs-6">
-                                    <?php echo number_format($calif_por_parcial[3], 1); ?>
-                                </span>
-                            </li>
-                            <li class="list-group-item text-center bg-light">
-                                <h6 class="mb-1 text-muted">Calificación Obtenida al Momento</h6>
-                                <h2 class="fw-bold <?php echo $final_calif_class; ?> mb-0"><?php echo number_format($calif_final, 1); ?></h2>
-                            </li>
-                        </ul>
+                                    </td>
+                                </tr>
+                            <?php endfor; ?>
+                        <?php endforeach; ?>
+                        
+                        <!-- Totales SECTION -->
+                         <tr class="bg-zinc-100/50 mt-2">
+                             <td colspan="3" class="px-6 py-3 border-t border-zinc-100">
+                                 <p class="text-xs uppercase tracking-widest text-zinc-400 font-bold mb-2">Promedios Parciales</p>
+                                 <div class="flex justify-between text-xs font-mono text-zinc-600">
+                                     <span>P1: <strong class="text-zinc-900"><?php echo number_format($calif_por_parcial[1], 1); ?></strong></span>
+                                     <span>P2: <strong class="text-zinc-900"><?php echo number_format($calif_por_parcial[2], 1); ?></strong></span>
+                                     <span>P3: <strong class="text-zinc-900"><?php echo number_format($calif_por_parcial[3], 1); ?></strong></span>
+                                 </div>
+                             </td>
+                         </tr>
+                    </table>
+                </div>
+                
+                <!-- Footer con Calificación Final -->
+                <div class="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
+                    <div class="flex flex-col">
+                        <span class="text-xs font-bold uppercase tracking-widest text-zinc-400">Promedio Final</span>
+                        <span class="text-[10px] text-emerald-600 font-medium mt-1 leading-tight max-w-[150px]">Promedio acumulado hasta el momento. El promedio final se conforma de los 3 parciales.</span>
                     </div>
-                    </div>
+                    <span class="text-3xl font-serif font-bold <?php echo $final_calif_class; ?>">
+                        <?php echo number_format($calif_final, 1); ?>
+                    </span>
+                </div>
             </div>
         <?php endforeach; ?>
     </div>
 <?php endif; ?>
 
+<!-- MODAL (ESTILO BOOTSTRAP POR COMPATIBILIDAD JS, PERO ESTILIZADO LIMPIO) -->
 <div class="modal fade" id="califModal" tabindex="-1" aria-labelledby="modalTitulo" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalTitulo">Desglose de Calificaciones</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-2xl rounded-xl overflow-hidden">
+      <div class="modal-header bg-zinc-950 text-white border-0 py-4">
+        <h5 class="modal-title font-serif italic" id="modalTitulo">Desglose</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
-        <p id="modalSubtitulo"></p>
-        <ul class="list-group" id="modalContenido">
-          </ul>
+      <div class="modal-body p-0">
+        <ul class="list-none m-0 p-0" id="modalContenido">
+          <!-- JS llena esto -->
+        </ul>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      <div class="modal-footer border-t border-zinc-100 py-3 bg-zinc-50">
+        <button type="button" class="px-4 py-2 bg-white border border-zinc-300 text-zinc-600 text-xs uppercase tracking-widest hover:bg-zinc-100 rounded transition" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -297,13 +302,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (items.length > 0) {
             items.forEach(function(item) {
                 var li = document.createElement('li');
-                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.className = 'flex justify-between items-center px-6 py-4 border-b border-zinc-100 last:border-0 hover:bg-zinc-50';
 
                 var nombreSpan = document.createElement('span');
+                nombreSpan.className = 'text-zinc-700 font-light text-sm';
                 nombreSpan.textContent = item.nombre;
 
                 var califSpan = document.createElement('span');
-                califSpan.className = 'badge bg-dark rounded-pill';
+                // Estilo minimalista para el badge 
+                califSpan.className = 'font-mono font-bold text-zinc-900 text-sm';
                 califSpan.textContent = parseFloat(item.calif).toFixed(1);
 
                 li.appendChild(nombreSpan);
@@ -313,7 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Esto no debería pasar si el botón está deshabilitado, pero por si acaso
             var li = document.createElement('li');
-            li.className = 'list-group-item text-muted';
+            li.className = 'px-6 py-4 text-center text-zinc-400 italic text-sm';
             li.textContent = 'No hay actividades registradas para este parcial.';
             modalBodyList.appendChild(li);
         }
