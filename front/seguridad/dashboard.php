@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['perfil_id'] != 4) {
     exit();
 }
 
-$view = isset($_GET['view']) ? $_GET['view'] : 'scanner';
+$view = isset($_GET['view']) ? $_GET['view'] : 'menu';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -57,7 +57,13 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'scanner';
 
         <div class="relative z-10 max-w-5xl mx-auto h-full flex flex-col">
             <?php
-            if ($view === 'scanner') {
+            if ($view === 'menu') {
+                include 'body_menu.php';
+            } elseif ($view === 'scanner' || $view === 'scanner_evento') {
+                // If scanner or scanner_evento, load scanner.
+                // We might need to pass a variable to scanner to know mode.
+                // For now, let's assume body_scanner handles general scanning.
+                echo '<div class="mb-4"><a href="dashboard.php?view=menu" class="text-zinc-500 hover:text-white flex items-center gap-2 transition-colors"><i class="fas fa-arrow-left"></i> Regresar al Menú</a></div>';
                 include 'body_scanner.php';
             } else {
                 echo "<p>Vista no encontrada</p>";

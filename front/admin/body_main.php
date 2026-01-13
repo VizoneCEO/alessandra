@@ -60,11 +60,78 @@ $monto_pendiente = $row_debt['total_pendiente'] ?? 0;
 // Trends (Static for UI polish)
 $trend_alumnos = "";
 $trend_ingresos = "";
+
+// 4. Desempeño por Cuenta (KPIs Solicitados)
+$accounts_stats = [];
+$sql_accounts = "SELECT id, banco, titular FROM Finanzas_Cuentas";
+$res_acc = $conn->query($sql_accounts);
+
+if ($res_acc) {
+    while ($acc = $res_acc->fetch_assoc()) {
+        // Alumnos Asignados
+        $sql_s = "SELECT COUNT(*) as c FROM Usuarios WHERE cuenta_deposito_id = " . $acc['id'];
+        $students = $conn->query($sql_s)->fetch_assoc()['c'];
+
+        // Dinero Recolectado (Mes Actual)
+        // Usamos monto_original + recargos ya que monto_pagado puede ser 0 si se validó administrativamente sin flujo de caja explícito
+        $sql_i = "SELECT SUM(monto_original + recargos) as t FROM finanzas_cargos 
+                  WHERE cuenta_receptora_id = " . $acc['id'] . " 
+                  AND estado = 'Pagado' 
+                  AND MONTH(fecha_pago) = MONTH(CURRENT_DATE()) 
+                  AND YEAR(fecha_pago) = YEAR(CURRENT_DATE())";
+        $income = $conn->query($sql_i)->fetch_assoc()['t'] ?? 0;
+
+        $accounts_stats[] = [
+            'banco' => $acc['banco'],
+            'titular' => $acc['titular'],
+            'students' => $students,
+            'income' => $income
+        ];
+    }
+}
 ?>
 
 <div class="mb-10">
     <h2 class="font-serif text-4xl text-zinc-900 mb-2">Resumen Ejecutivo</h2>
     <p class="text-zinc-500 font-light text-sm">Estado financiero y académico de la institución.</p>
+</div>
+
+<!-- SECTION: Desempeño por Cuenta (New Request) -->
+<h3 class="font-bold text-zinc-500 text-xs uppercase tracking-widest mb-4 border-b border-zinc-100 pb-2">
+    <i class="fas fa-university mr-2"></i> Balance por Cuenta (Mes Actual)
+</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+    <?php foreach ($accounts_stats as $acc): ?>
+        <div
+            class="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm relative overflow-hidden group hover:border-zinc-900 transition-colors">
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <h5 class="font-bold text-zinc-900"><?php echo htmlspecialchars($acc['banco']); ?></h5>
+                    <p class="text-[10px] text-zinc-400 uppercase tracking-widest">
+                        <?php echo htmlspecialchars($acc['titular']); ?>
+                    </p>
+                </div>
+                <div class="bg-zinc-100 p-2 rounded-full text-zinc-600">
+                    <i class="fas fa-wallet text-sm"></i>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <p class="text-xs text-zinc-400 font-light mb-1">Recaudado este mes</p>
+                    <p class="font-serif text-2xl font-bold text-emerald-600">
+                        $<?php echo number_format($acc['income'], 2); ?>
+                    </p>
+                </div>
+                <div class="pt-3 border-t border-zinc-50 flex items-center justify-between">
+                    <span class="text-xs text-zinc-500">Alumnos Asignados</span>
+                    <span class="bg-zinc-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        <?php echo $acc['students']; ?> Alumnos
+                    </span>
+                </div>
+            </div>
+        </div>
+    <?php endforeach; ?>
 </div>
 
 <!-- KPI Review Grid -->
@@ -91,7 +158,8 @@ $trend_ingresos = "";
         </div>
         <h6 class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Ingresos (Rango)</h6>
         <div class="flex items-baseline mb-2">
-            <span class="font-serif text-4xl font-bold text-zinc-900">$<?php echo number_format($ingresos_rango); ?></span>
+            <span
+                class="font-serif text-4xl font-bold text-zinc-900">$<?php echo number_format($ingresos_rango); ?></span>
         </div>
         <p class="text-[10px] text-zinc-400 font-light">En fechas seleccionadas</p>
     </div>
@@ -104,7 +172,8 @@ $trend_ingresos = "";
         </div>
         <h6 class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Cartera Vencida</h6>
         <div class="flex items-baseline mb-2">
-            <span class="font-serif text-4xl font-bold text-rose-700">$<?php echo number_format($monto_vencido, 2); ?></span>
+            <span
+                class="font-serif text-4xl font-bold text-rose-700">$<?php echo number_format($monto_vencido, 2); ?></span>
         </div>
         <p class="text-[10px] text-zinc-400 font-light">Deuda Vencida Total</p>
     </div>
@@ -117,7 +186,8 @@ $trend_ingresos = "";
         </div>
         <h6 class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Por Cobrar</h6>
         <div class="flex items-baseline mb-2">
-            <span class="font-serif text-4xl font-bold text-amber-600">$<?php echo number_format($monto_pendiente, 2); ?></span>
+            <span
+                class="font-serif text-4xl font-bold text-amber-600">$<?php echo number_format($monto_pendiente, 2); ?></span>
         </div>
         <p class="text-[10px] text-zinc-400 font-light">Pagos Pendientes (No Vencidos)</p>
     </div>
@@ -129,14 +199,18 @@ $trend_ingresos = "";
     <div class="lg:col-span-2 bg-white p-8 rounded-xl border border-zinc-100 shadow-sm">
         <div class="flex flex-col md:flex-row justify-between items-center mb-6">
             <h3 class="font-serif text-xl text-zinc-900 mb-4 md:mb-0">Análisis de Ingresos</h3>
-            
+
             <!-- Date Filter Form -->
-            <form method="GET" action="dashboard.php" class="flex gap-2 items-center bg-zinc-50 p-1 rounded-lg border border-zinc-200">
+            <form method="GET" action="dashboard.php"
+                class="flex gap-2 items-center bg-zinc-50 p-1 rounded-lg border border-zinc-200">
                 <input type="hidden" name="page" value="main">
-                <input type="date" name="start" value="<?php echo $filter_start; ?>" class="bg-transparent border-none text-xs text-zinc-600 focus:ring-0">
+                <input type="date" name="start" value="<?php echo $filter_start; ?>"
+                    class="bg-transparent border-none text-xs text-zinc-600 focus:ring-0">
                 <span class="text-zinc-300">-</span>
-                <input type="date" name="end" value="<?php echo $filter_end; ?>" class="bg-transparent border-none text-xs text-zinc-600 focus:ring-0">
-                <button type="submit" class="px-3 py-1 bg-zinc-900 text-white text-xs rounded hover:bg-zinc-800 transition-colors">
+                <input type="date" name="end" value="<?php echo $filter_end; ?>"
+                    class="bg-transparent border-none text-xs text-zinc-600 focus:ring-0">
+                <button type="submit"
+                    class="px-3 py-1 bg-zinc-900 text-white text-xs rounded hover:bg-zinc-800 transition-colors">
                     <i class="fas fa-filter"></i>
                 </button>
             </form>
@@ -158,21 +232,24 @@ $trend_ingresos = "";
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-50">
-                    <?php if(empty($tags_data)): ?>
-                        <tr><td colspan="2" class="py-4 text-center text-zinc-400 text-xs">Sin datos en este rango</td></tr>
-                    <?php else: ?>
-                        <?php foreach($tags_data as $tag): ?>
+                    <?php if (empty($tags_data)): ?>
                         <tr>
-                            <td class="py-3 text-zinc-700">
-                                <span class="block font-medium truncate max-w-[150px]" title="<?php echo htmlspecialchars($tag['concepto']); ?>">
-                                    <?php echo htmlspecialchars($tag['concepto']); ?>
-                                </span>
-                                <span class="text-[10px] text-zinc-400"><?php echo $tag['qty']; ?> pagos</span>
-                            </td>
-                            <td class="py-3 text-right font-mono text-emerald-600 font-bold">
-                                $<?php echo number_format($tag['monto'], 2); ?>
-                            </td>
+                            <td colspan="2" class="py-4 text-center text-zinc-400 text-xs">Sin datos en este rango</td>
                         </tr>
+                    <?php else: ?>
+                        <?php foreach ($tags_data as $tag): ?>
+                            <tr>
+                                <td class="py-3 text-zinc-700">
+                                    <span class="block font-medium truncate max-w-[150px]"
+                                        title="<?php echo htmlspecialchars($tag['concepto']); ?>">
+                                        <?php echo htmlspecialchars($tag['concepto']); ?>
+                                    </span>
+                                    <span class="text-[10px] text-zinc-400"><?php echo $tag['qty']; ?> pagos</span>
+                                </td>
+                                <td class="py-3 text-right font-mono text-emerald-600 font-bold">
+                                    $<?php echo number_format($tag['monto'], 2); ?>
+                                </td>
+                            </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
@@ -211,11 +288,11 @@ $trend_ingresos = "";
                 y: {
                     beginAtZero: true,
                     grid: { borderDash: [2, 4], color: '#f4f4f5' },
-                    ticks: { callback: function(value) { return '$' + value; }, font: {size: 10} }
+                    ticks: { callback: functi on (value) { return '$' + value; }, font : { size : 10 } }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { font: {size: 10} }
+                    ticks: { fo nt: { si ze: 10 } }
                 }
             }
         }

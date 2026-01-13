@@ -6,8 +6,26 @@ $cargos = [];
 $saldo_total = 0;
 $tiene_vencidos = false;
 
+// Fetch Assigned Deposit Account
+$sql_account = "SELECT c.* FROM Finanzas_Cuentas c 
+                JOIN Usuarios u ON u.cuenta_deposito_id = c.id 
+                WHERE u.id = ? AND c.activo = 1";
+$stmt_acc = $conn->prepare($sql_account);
+$stmt_acc->bind_param("i", $user_id);
+$stmt_acc->execute();
+$res_acc = $stmt_acc->get_result();
+$assignedAccount = $res_acc->fetch_assoc();
+$stmt_acc->close();
+
 // Fetch Charges
-$sql = "SELECT * FROM finanzas_cargos WHERE alumno_id = ? ORDER BY fecha_vencimiento DESC";
+// Fetch Charges
+$sql = "SELECT c.*, 
+        (SELECT descripcion FROM finanzas_cargos_historial 
+         WHERE cargo_id = c.id AND tipo_evento = 'RECHAZADO' 
+         ORDER BY fecha DESC LIMIT 1) as ultimo_rechazo
+        FROM finanzas_cargos c 
+        WHERE c.alumno_id = ? AND c.estado != 'Cancelado' 
+        ORDER BY c.fecha_vencimiento DESC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -187,6 +205,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         <tr class="<?php echo $rowClass; ?>">
                             <td class="px-6 py-4 font-medium text-zinc-700">
                                 <?php echo htmlspecialchars($t['concepto']); ?>
+                                <!-- Show Rejection Reason -->
+                                <?php if (!empty($t['ultimo_rechazo']) && empty($t['comprobante_url']) && $t['visual_status'] !== 'Pagado'): ?>
+                                    <div
+                                        class="mt-2 text-[10px] bg-rose-50 text-rose-600 border border-rose-100 p-2 rounded-lg flex items-start gap-2 max-w-[200px]">
+                                        <i class="fas fa-exclamation-circle mt-0.5 shrink-0"></i>
+                                        <div>
+                                            <span class="font-bold block uppercase tracking-wider mb-0.5">Pago Rechazado</span>
+                                            <span
+                                                class="opacity-90 leading-tight block"><?php echo htmlspecialchars($t['ultimo_rechazo']); ?></span>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td class="px-6 py-4 text-zinc-500 font-light">
                                 <?php echo date('d M, Y', strtotime($t['fecha_vencimiento'])); ?>
@@ -528,69 +558,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </p>
                     </div>
 
-                    <!-- Tabs -->
+                    <!-- Info Header -->
                     <div class="flex border-b border-zinc-200 mb-6">
-                        <button onclick="switchMethod('card')" id="tabCard"
-                            class="flex-1 py-2 text-xs font-bold uppercase tracking-widest border-b-2 border-zinc-900 text-zinc-900">Tarjeta</button>
-                        <button onclick="switchMethod('transfer')" id="tabTransfer"
-                            class="flex-1 py-2 text-xs font-bold uppercase tracking-widest border-b-2 border-transparent text-zinc-400 hover:text-zinc-600">Transferencia</button>
+                        <div
+                            class="flex-1 py-2 text-xs font-bold uppercase tracking-widest border-b-2 border-zinc-900 text-zinc-900 text-center">
+                            Transferencia / Depósito</div>
                     </div>
 
-                    <!-- Card Form -->
-                    <div id="methodCard">
-                        <form id="cardForm"
-                            onsubmit="event.preventDefault(); alert('Simulación: Pago con tarjeta procesado.'); closePaymentModal();"
-                            class="space-y-4">
-                            <div>
-                                <label
-                                    class="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Titular</label>
-                                <input type="text"
-                                    class="w-full border-b border-zinc-300 py-2 text-zinc-900 focus:border-zinc-900 outline-none text-sm placeholder-zinc-300"
-                                    placeholder="NOMBRE EN TARJETA">
-                            </div>
-                            <div>
-                                <label
-                                    class="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Número
-                                    de Tarjeta</label>
-                                <input type="text"
-                                    class="w-full border-b border-zinc-300 py-2 text-zinc-900 focus:border-zinc-900 outline-none text-sm placeholder-zinc-300"
-                                    placeholder="0000 0000 0000 0000">
-                            </div>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label
-                                        class="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">Exp.</label>
-                                    <input type="text"
-                                        class="w-full border-b border-zinc-300 py-2 text-zinc-900 focus:border-zinc-900 outline-none text-sm placeholder-zinc-300"
-                                        placeholder="MM/YY">
-                                </div>
-                                <div>
-                                    <label
-                                        class="block text-xs font-bold uppercase tracking-widest text-zinc-500 mb-1">CVC</label>
-                                    <input type="password"
-                                        class="w-full border-b border-zinc-300 py-2 text-zinc-900 focus:border-zinc-900 outline-none text-sm placeholder-zinc-300"
-                                        placeholder="123">
-                                </div>
-                            </div>
-                            <button type="submit"
-                                class="w-full bg-zinc-900 text-white py-3 rounded text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors mt-4">
-                                Pagar Ahora
-                            </button>
-                        </form>
-                    </div>
-
-                    <!-- Transfer Form -->
-                    <div id="methodTransfer" class="hidden">
+                    <!-- Transfer Form (Visible by Default) -->
+                    <div id="methodTransfer">
                         <form method="POST" enctype="multipart/form-data" class="space-y-4">
                             <input type="hidden" name="action" value="upload_proof">
                             <input type="hidden" name="charge_id" id="inputChargeId">
 
                             <div class="bg-blue-50 p-4 rounded text-blue-800 text-xs mb-4">
                                 <p class="font-bold mb-1">Datos Bancarios:</p>
-                                <p>Banco: BBVA</p>
-                                <p>Cuenta: 0123456789</p>
-                                <p>CLABE: 012012012345678901</p>
-                                <p>Concepto: <span id="refConcept">MATRICULA</span></p>
+                                <?php if ($assignedAccount): ?>
+                                    <p>Banco: <strong><?php echo htmlspecialchars($assignedAccount['banco']); ?></strong>
+                                    </p>
+                                    <p>Titular: <?php echo htmlspecialchars($assignedAccount['titular']); ?></p>
+                                    <?php if ($assignedAccount['numero_cuenta']): ?>
+                                        <p>Cuenta: <?php echo htmlspecialchars($assignedAccount['numero_cuenta']); ?></p>
+                                    <?php endif; ?>
+                                    <?php if ($assignedAccount['clabe']): ?>
+                                        <p>CLABE: <?php echo htmlspecialchars($assignedAccount['clabe']); ?></p>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <p class="text-rose-600 font-bold">No tienes una cuenta asignada. Por favor contacta a
+                                        administración.</p>
+                                <?php endif; ?>
+                                <p class="mt-2 text-zinc-500">Concepto: <span id="refConcept"
+                                        class="font-mono font-bold text-zinc-900">MATRICULA</span></p>
                             </div>
 
                             <div>
@@ -644,28 +642,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }, 300);
     }
 
-    function switchMethod(method) {
-        const tabCard = document.getElementById('tabCard');
-        const tabTransfer = document.getElementById('tabTransfer');
-        const divCard = document.getElementById('methodCard');
-        const divTransfer = document.getElementById('methodTransfer');
 
-        if (method === 'card') {
-            tabCard.classList.add('border-zinc-900', 'text-zinc-900');
-            tabCard.classList.remove('border-transparent', 'text-zinc-400');
-            tabTransfer.classList.add('border-transparent', 'text-zinc-400');
-            tabTransfer.classList.remove('border-zinc-900', 'text-zinc-900');
-
-            divCard.classList.remove('hidden');
-            divTransfer.classList.add('hidden');
-        } else {
-            tabTransfer.classList.add('border-zinc-900', 'text-zinc-900');
-            tabTransfer.classList.remove('border-transparent', 'text-zinc-400');
-            tabCard.classList.add('border-transparent', 'text-zinc-400');
-            tabCard.classList.remove('border-zinc-900', 'text-zinc-900');
-
-            divTransfer.classList.remove('hidden');
-            divCard.classList.add('hidden');
-        }
-    }
 </script>

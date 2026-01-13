@@ -136,6 +136,13 @@ if ($row_pic = $res_pic->fetch_assoc()) {
                     Mis Finanzas
                 </a>
 
+                <a href="dashboard.php?view=boletos"
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all group <?php echo ($view == 'boletos') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'; ?>">
+                    <i
+                        class="fas fa-ticket-alt w-6 <?php echo ($view == 'boletos') ? 'text-rose-500' : 'text-zinc-600 group-hover:text-rose-500'; ?> transition-colors"></i>
+                    Mis Boletos
+                </a>
+
                 <a href="dashboard.php?view=portafolio"
                     class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all group <?php echo ($view == 'portafolio') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'; ?>">
                     <i
@@ -179,6 +186,8 @@ if ($row_pic = $res_pic->fetch_assoc()) {
                         echo 'Historial Académico';
                     elseif ($view == 'finanzas')
                         echo 'Estado de Cuenta';
+                    elseif ($view == 'boletos')
+                        echo 'Mis Boletos';
                     elseif ($view == 'portafolio')
                         echo 'Mi Portafolio';
                     elseif ($view == 'documentos')
@@ -219,7 +228,8 @@ if ($row_pic = $res_pic->fetch_assoc()) {
             <div class="w-full pb-44 lg:pb-0">
                 <?php
                 // --- Cargador de contenido ---
-                $allowed_views = ['main', 'clases', 'historial', 'finanzas', 'portafolio', 'documentos', 'credencial'];
+                // --- Cargador de contenido ---
+                $allowed_views = ['main', 'clases', 'historial', 'finanzas', 'boletos', 'portafolio', 'documentos', 'credencial'];
                 if (in_array($view, $allowed_views)) {
                     include 'body_' . $view . '.php';
                 } else {
@@ -269,6 +279,13 @@ if ($row_pic = $res_pic->fetch_assoc()) {
             <span class="text-[0.6rem] uppercase tracking-wider font-bold">Pagos</span>
         </a>
 
+        <!-- Boletos -->
+        <a href="dashboard.php?view=boletos"
+            class="flex flex-col items-center gap-1 min-w-[3rem] shrink-0 <?php echo ($view == 'boletos') ? 'text-rose-500' : 'text-zinc-500 hover:text-zinc-300'; ?>">
+            <i class="fas fa-ticket-alt text-lg"></i>
+            <span class="text-[0.6rem] uppercase tracking-wider font-bold">Boletos</span>
+        </a>
+
         <!-- 6. Portafolio -->
         <a href="dashboard.php?view=portafolio"
             class="flex flex-col items-center gap-1 min-w-[3rem] shrink-0 <?php echo ($view == 'portafolio') ? 'text-purple-400' : 'text-zinc-500 hover:text-zinc-300'; ?>">
@@ -299,7 +316,8 @@ if ($row_pic = $res_pic->fetch_assoc()) {
         if (toggleButton) {
             toggleButton.onclick = function () {
                 sidebar.classList.toggle("hidden");
-            };     }
+            };
+        }
     </script>
 </body>
 

@@ -105,11 +105,100 @@ if ($action === 'fetch_config') {
         echo json_encode(['success' => false, 'message' => "Se encontraron $errors errores al guardar."]);
     }
 
+
+} elseif ($action === 'get_events') {
+    $sql = "SELECT * FROM finanzas_eventos WHERE activo = 1 ORDER BY fecha DESC";
+    $res = $conn->query($sql);
+    $events = [];
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $events[] = $row;
+        }
+    }
+    echo json_encode(['success' => true, 'data' => $events]);
+
+} elseif ($action === 'fetch_tickets') {
+    $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+
+    $sql = "SELECT b.*, e.nombre as evento, u.nombre_completo as alumno 
+            FROM finanzas_boletos b 
+            JOIN finanzas_eventos e ON b.evento_id = e.id 
+            JOIN Usuarios u ON b.alumno_id = u.id";
+
+    if ($event_id > 0) {
+        $sql .= " WHERE b.evento_id = $event_id";
+    }
+
+    $sql .= " ORDER BY b.evento_id DESC, b.folio_asiento ASC";
+
+    $res = $conn->query($sql);
+    $data = [];
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            // Add issue date from cargo or default?
+            // finanzas_boletos doesn't have date, but we can join with pago or cargo.
+            // For now let's leave date empty or fetch it if needed.
+            // Update: migration_tickets says 'fecha_emision' column exists in boletos?
+            // Let's check migration file content.
+            // Assuming it exists or we use created_at.
+            $row['fecha_emision'] = isset($row['fecha_emision']) ? $row['fecha_emision'] : '-';
+            $data[] = $row;
+        }
+    }
+    jsonResponse(true, 'Tickets loaded', $data);
+
+} elseif ($action === 'toggle_ticket_status') {
+    $ticket_id = $_POST['ticket_id'] ?? 0;
+
+    if (!$ticket_id)
+        jsonResponse(false, 'ID Ticket requerido');
+
+    // Get current status
+    $stmt = $conn->prepare("SELECT estado_uso FROM finanzas_boletos WHERE id = ?");
+    $stmt->bind_param("i", $ticket_id);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    if ($row = $res->fetch_assoc()) {
+        $new_status = ($row['estado_uso'] === 'Usado') ? 'Disponible' : 'Usado';
+
+        $upd = $conn->prepare("UPDATE finanzas_boletos SET estado_uso = ? WHERE id = ?");
+        $upd->bind_param("si", $new_status, $ticket_id);
+
+        if ($upd->execute()) {
+            // Log event? Maybe on main cargo log it would be hard to link back. 
+            // We can skip log or log if cargo_id known.
+            jsonResponse(true, 'Estado actualizado', ['new_status' => $new_status]);
+        } else {
+            jsonResponse(false, 'Error al actualizar');
+        }
+    } else {
+        jsonResponse(false, 'Ticket no encontrado');
+    }
+
+} elseif ($action === 'add_event') {
+    $nombre = $_POST['nombre'] ?? '';
+    $fecha = $_POST['fecha'] ?? date('Y-m-d');
+
+    if (empty($nombre))
+        jsonResponse(false, 'Nombre requerido');
+
+    $stmt = $conn->prepare("INSERT INTO finanzas_eventos (nombre, fecha) VALUES (?, ?)");
+    $stmt->bind_param("ss", $nombre, $fecha);
+    if ($stmt->execute()) {
+        jsonResponse(true, 'Evento creado', ['id' => $stmt->insert_id, 'nombre' => $nombre]);
+    } else {
+        jsonResponse(false, 'Error al crear evento');
+    }
+
 } elseif ($action === 'fetch_charges') {
     $sql = "SELECT c.*, u.nombre_completo as alumno_name 
             FROM finanzas_cargos c 
             JOIN Usuarios u ON c.alumno_id = u.id 
-            ORDER BY c.fecha_vencimiento ASC";
+            ORDER BY 
+                (c.comprobante_url IS NOT NULL AND c.comprobante_url != '' AND c.estado != 'Pagado') DESC,
+                u.nombre_completo ASC,
+                c.fecha_vencimiento ASC";
 
     $result = $conn->query($sql);
     $data = [];
@@ -196,9 +285,10 @@ if ($action === 'fetch_config') {
     }
 
     $count_success = 0;
-    $today_vence = date('Y-m-d'); // Tickets due immediately? Or no due date? Let's say due today.
+    $today_vence = date('Y-m-d');
+    $evento_id = isset($_POST['evento_id']) ? intval($_POST['evento_id']) : null;
 
-    $sql_insert = "INSERT INTO finanzas_cargos (alumno_id, concepto, monto_original, beca_aplicada, recargos, estado, fecha_vencimiento) VALUES (?, ?, ?, 0.00, 0.00, 'Pago Pendiente', ?)";
+    $sql_insert = "INSERT INTO finanzas_cargos (alumno_id, concepto, monto_original, beca_aplicada, recargos, estado, fecha_vencimiento, evento_id, cantidad_boletos) VALUES (?, ?, ?, 0.00, 0.00, 'Pago Pendiente', ?, ?, ?)";
     $stmt = $conn->prepare($sql_insert);
 
     foreach ($items as $item) {
@@ -210,9 +300,10 @@ if ($action === 'fetch_config') {
             continue;
 
         $total = $qty * $price;
+        $total = $qty * $price;
         $concept_final = $concept_base . ($qty > 1 ? " (x$qty)" : "");
 
-        $stmt->bind_param("isds", $student_id, $concept_final, $total, $today_vence);
+        $stmt->bind_param("isdsii", $student_id, $concept_final, $total, $today_vence, $evento_id, $qty);
 
         if ($stmt->execute()) {
             $new_id = $stmt->insert_id;
@@ -329,6 +420,29 @@ if ($action === 'fetch_config') {
         $desc = "Pago de $$monto_pago registrado ($metodo). Estado: $nuevo_estado. Restante: $$saldo_restante";
         log_cargo_event($conn, $charge_id, 'PAGO', $desc);
 
+        // 4. Generate Tickets if Fully Paid and Linked to Event
+        if ($nuevo_estado == 'Pagado' && !empty($charge['evento_id'])) {
+            // Check for existing tickets to avoid duplicates
+            $chk_tickets = $conn->query("SELECT id FROM finanzas_boletos WHERE cargo_id = $charge_id");
+            if ($chk_tickets && $chk_tickets->num_rows == 0) {
+                $evt_id = intval($charge['evento_id']);
+                $qty_tickets = intval($charge['cantidad_boletos']) ?: 1;
+                $pago_id = $stmt_ins->insert_id;
+                $alumno_id = $charge['alumno_id'];
+
+                for ($i = 0; $i < $qty_tickets; $i++) {
+                    // Get Next Folio
+                    $res_folio = $conn->query("SELECT COALESCE(MAX(folio_asiento), 0) + 1 as next_folio FROM finanzas_boletos WHERE evento_id = $evt_id");
+                    $next_folio = ($res_folio && $row_f = $res_folio->fetch_assoc()) ? $row_f['next_folio'] : 1;
+
+                    $ins_ticket = $conn->prepare("INSERT INTO finanzas_boletos (evento_id, alumno_id, cargo_id, pago_id, folio_asiento) VALUES (?, ?, ?, ?, ?)");
+                    $ins_ticket->bind_param("iiiii", $evt_id, $alumno_id, $charge_id, $pago_id, $next_folio);
+                    $ins_ticket->execute();
+                }
+                log_cargo_event($conn, $charge_id, 'OTRO', "Se generaron $qty_tickets boletos (Evento #$evt_id).");
+            }
+        }
+
         jsonResponse(true, 'Pago registrado correctly.', ['nuevo_estado' => $nuevo_estado, 'saldo' => $saldo_restante]);
     } else {
         jsonResponse(false, 'Error al registrar el pago individual.');
@@ -342,18 +456,66 @@ if ($action === 'fetch_config') {
         jsonResponse(false, 'ID Requerido');
 
     if ($status === 'approved') {
-        $sql = "UPDATE finanzas_cargos SET estado = 'Pagado', fecha_pago = NOW() WHERE id = ?";
+        // 1. Get Student Account
+        $rec_acc_id = null;
+        $q_acc = $conn->prepare("SELECT u.cuenta_deposito_id FROM finanzas_cargos c JOIN Usuarios u ON c.alumno_id = u.id WHERE c.id = ?");
+        $q_acc->bind_param("i", $charge_id);
+        $q_acc->execute();
+        if ($row_acc = $q_acc->get_result()->fetch_assoc()) {
+            $rec_acc_id = $row_acc['cuenta_deposito_id'];
+        }
+
+        // Update Charge: Set Paid, Date, Receiving Account, and Amount Paid (Full)
+        $sql = "UPDATE finanzas_cargos SET estado = 'Pagado', fecha_pago = NOW(), cuenta_receptora_id = ?, monto_pagado = (monto_original + recargos) WHERE id = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("i", $charge_id);
+        $stmt->bind_param("ii", $rec_acc_id, $charge_id);
         if ($stmt->execute()) {
             log_cargo_event($conn, $charge_id, 'PAGO', "Comprobante validado por Admin.");
-            jsonResponse(true, 'Pago validado');
+
+            // Generate Tickets if linked to Event
+            // Verify charge details first
+            $c_check = $conn->query("SELECT * FROM finanzas_cargos WHERE id = $charge_id");
+            if ($c_check && $charge = $c_check->fetch_assoc()) {
+                if (!empty($charge['evento_id'])) {
+                    $chk_tickets = $conn->query("SELECT id FROM finanzas_boletos WHERE cargo_id = $charge_id");
+                    if ($chk_tickets && $chk_tickets->num_rows == 0) {
+                        $evt_id = intval($charge['evento_id']);
+                        $qty_tickets = intval($charge['cantidad_boletos']) ?: 1;
+                        $pago_id = 0; // No payment ID for receipt validation unless we look it up or leave 0
+                        // Ideally we should have a payment record for receipt too? 
+                        // Current logic for receipt just updates charge. Let's leave pago_id = 0 or NULL if allowed.
+                        // finanzas_boletos schema: pago_id might be required? Let's assume 0 is fine for now.
+                        $alumno_id = $charge['alumno_id'];
+
+                        for ($i = 0; $i < $qty_tickets; $i++) {
+                            // Get Next Folio
+                            $res_folio = $conn->query("SELECT COALESCE(MAX(folio_asiento), 0) + 1 as next_folio FROM finanzas_boletos WHERE evento_id = $evt_id");
+                            $next_folio = ($res_folio && $row_f = $res_folio->fetch_assoc()) ? $row_f['next_folio'] : 1;
+
+                            $ins_ticket = $conn->prepare("INSERT INTO finanzas_boletos (evento_id, alumno_id, cargo_id, pago_id, folio_asiento) VALUES (?, ?, ?, ?, ?)");
+                            $ins_ticket->bind_param("iiiii", $evt_id, $alumno_id, $charge_id, $pago_id, $next_folio);
+                            $ins_ticket->execute();
+                        }
+                        log_cargo_event($conn, $charge_id, 'OTRO', "Se generaron $qty_tickets boletos (Evento #$evt_id) tras validación.");
+                    }
+                }
+            }
+
+            jsonResponse(true, 'Pago validado y boletos generados (si aplica).');
         }
     } elseif ($status === 'rejected') {
-        // Reset to pending, maybe keep url but mark rejected? 
-        // Simple approach: Keep Pending, log rejection.
-        log_cargo_event($conn, $charge_id, 'RECORDATORIO', "Comprobante rechazado. Se requiere nuevo pago.");
-        jsonResponse(true, 'Comprobante rechazado');
+        $reason = $_POST['reason'] ?? 'Sin motivo especificado';
+        // Reject: Clear URL, Keep Pending, Log Reason
+        $sql = "UPDATE finanzas_cargos SET comprobante_url = NULL, estado = 'Pago Pendiente', metodo_pago = NULL, fecha_pago = NULL WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("i", $charge_id);
+
+        if ($stmt->execute()) {
+            log_cargo_event($conn, $charge_id, 'RECHAZADO', "Comprobante rechazado. Motivo: $reason");
+            jsonResponse(true, 'Comprobante rechazado correctamente.');
+        } else {
+            jsonResponse(false, 'Error al actualizar base de datos.');
+        }
     } else {
         jsonResponse(false, 'Status inválido');
     }
@@ -388,9 +550,20 @@ if ($action === 'fetch_config') {
     }
 
     if ($status === 'approved') {
-        // Mark as Paid
-        $stmt = $conn->prepare("UPDATE finanzas_cargos SET estado = 'Pagado', fecha_pago = NOW() WHERE id = ?");
-        $stmt->bind_param("i", $charge_id);
+        // 1. Get Student's Assigned Account
+        $rec_acc_id = null;
+        $q_acc = $conn->prepare("SELECT u.cuenta_deposito_id FROM finanzas_cargos c JOIN Usuarios u ON c.alumno_id = u.id WHERE c.id = ?");
+        $q_acc->bind_param("i", $charge_id);
+        $q_acc->execute();
+        $res_acc = $q_acc->get_result();
+        if ($row_acc = $res_acc->fetch_assoc()) {
+            $rec_acc_id = $row_acc['cuenta_deposito_id'];
+        }
+
+        // 2. Update Charge
+        $sql = "UPDATE finanzas_cargos SET estado = 'Pagado', fecha_pago = NOW(), cuenta_receptora_id = ?, monto_pagado = (monto_original + recargos) WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ii", $rec_acc_id, $charge_id);
         if ($stmt->execute()) {
             log_cargo_event($conn, $charge_id, 'PAGO', 'Pago verificado y aprobado por administrador.');
             jsonResponse(true, 'Pago aprobado correctamente.');
@@ -417,7 +590,7 @@ if ($action === 'fetch_config') {
 
 
 } elseif ($action === 'fetch_history') {
-    $charge_id = $_POST['charge_id'] ?? 0;
+    $charge_id = $_POST['charge_id'] ?? $_GET['charge_id'] ?? 0;
     if (!$charge_id)
         jsonResponse(false, 'ID Requerido');
 

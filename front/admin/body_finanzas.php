@@ -23,7 +23,7 @@ if ($res_students) {
 
 // 2. Fetch Active Assignments (Configs)
 $alumnos_config = [];
-$sql_config = "SELECT f.*, u.nombre_completo as nombre 
+$sql_config = "SELECT f.*, u.nombre_completo as nombre, u.forma
                FROM finanzas_asignaciones f 
                JOIN Usuarios u ON f.alumno_id = u.id
                ORDER BY u.nombre_completo ASC";
@@ -56,9 +56,10 @@ $conn->query("UPDATE finanzas_cargos
 // 4. Fetch Charges (Cobranza)
 $cargos_actuales = [];
 $cargos_historicos = [];
-$sql_cargos = "SELECT c.*, u.nombre_completo as nombre 
+$sql_cargos = "SELECT c.*, u.nombre_completo as nombre, u.forma, acc.banco as banco_receptor, acc.titular as titular_receptor
                FROM finanzas_cargos c
                JOIN Usuarios u ON c.alumno_id = u.id
+               LEFT JOIN Finanzas_Cuentas acc ON c.cuenta_receptora_id = acc.id
                ORDER BY c.fecha_vencimiento ASC";
 $res_cargos = $conn->query($sql_cargos);
 if ($res_cargos) {
@@ -167,6 +168,14 @@ if ($res_ciclos) {
                     <option value="sin_beca">Sin Beca</option>
                 </select>
 
+                <!-- Filter Sucursal -->
+                <select id="filterSucursalConfig"
+                    class="py-1.5 pl-3 pr-8 text-xs border border-zinc-200 rounded-md focus:border-zinc-900 outline-none bg-white cursor-pointer">
+                    <option value="all">Forma: Todas</option>
+                    <option value="online">Online</option>
+                    <option value="presencial">Presencial</option>
+                </select>
+
                 <div class="h-6 w-px bg-zinc-200 mx-1"></div>
 
                 <!-- Buttons -->
@@ -181,6 +190,10 @@ if ($res_ciclos) {
                 </button>
             </div>
         </div>
+        <div class="mt-4 px-6 pb-2 text-xs text-zinc-400 font-mono text-right">
+            <span id="configRecordCount" class="font-bold text-zinc-600">0</span> registros encontrados
+        </div>
+
 
         <div class="overflow-x-auto">
             <table class="w-full text-left">
@@ -188,9 +201,9 @@ if ($res_ciclos) {
                     <tr>
                         <th class="px-6 py-4 font-medium">Alumno</th>
                         <th class="px-6 py-4 font-medium">Colegiatura Base</th>
-                        <th class="px-6 py-4 font-medium">Inscripción Base</th>
                         <th class="px-6 py-4 font-medium">$ Beca</th>
-                        <th class="px-6 py-4 font-medium text-right bg-zinc-800">Total Mensual (Calc)</th>
+                        <th class="px-6 py-4 font-medium bg-zinc-800">Total Mensual (Calc)</th>
+                        <th class="px-6 py-4 font-medium text-right">Inscripción con Beca</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-100 text-sm">
@@ -198,9 +211,11 @@ if ($res_ciclos) {
                         // Calculo 
                         $descuento = $alumno['beca_monto'];
                         $final = $alumno['colegiatura_base'] - $descuento;
+                        $sucursalType = strtolower($alumno['forma'] ?? 'presencial');
                         ?>
                         <tr class="hover:bg-zinc-50 transition-colors group row-editable"
-                            data-id="<?php echo $alumno['alumno_id'] ?: $alumno['id']; ?>">
+                            data-id="<?php echo $alumno['alumno_id'] ?: $alumno['id']; ?>"
+                            data-sucursal="<?php echo $sucursalType; ?>">
                             <td class="px-6 py-4 font-bold text-zinc-800 border-r border-zinc-50">
                                 <?php echo htmlspecialchars($alumno['nombre']); ?>
                             </td>
@@ -214,13 +229,6 @@ if ($res_ciclos) {
                                 </div>
                             </td>
                             <td class="px-6 py-4">
-                                <div class="flex items-center text-zinc-400 focus-within:text-zinc-900 transition-colors">
-                                    <span class="mr-1">$</span>
-                                    <input type="number" value="<?php echo $alumno['inscripcion_base']; ?>"
-                                        class="input-inscripcion w-32 border-b border-zinc-200 py-1 focus:border-zinc-900 outline-none bg-transparent font-medium text-zinc-900">
-                                </div>
-                            </td>
-                            <td class="px-6 py-4">
                                 <div class="flex items-center text-zinc-400 focus-within:text-blue-600 transition-colors">
                                     <span class="mr-1 text-blue-400 font-bold">$</span>
                                     <input type="number" value="<?php echo $alumno['beca_monto']; ?>"
@@ -228,8 +236,17 @@ if ($res_ciclos) {
                                 </div>
                             </td>
 
-                            <td class="px-6 py-4 text-right bg-zinc-50 font-serif font-bold text-lg text-emerald-700">
+                            <td class="px-6 py-4 bg-zinc-50 font-serif font-bold text-lg text-emerald-700">
                                 $<?php echo number_format($final, 2); ?>
+                            </td>
+
+                            <td class="px-6 py-4 text-right">
+                                <div
+                                    class="flex items-center justify-end text-zinc-400 focus-within:text-zinc-900 transition-colors">
+                                    <span class="mr-1">$</span>
+                                    <input type="number" value="<?php echo $alumno['inscripcion_base']; ?>"
+                                        class="input-inscripcion w-32 border-b border-zinc-200 py-1 focus:border-zinc-900 outline-none bg-transparent font-medium text-zinc-900 text-right">
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -283,14 +300,26 @@ if ($res_ciclos) {
                         class="w-full pl-8 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded text-xs focus:border-zinc-900 outline-none transition-colors shadow-sm"
                         onkeyup="filterCharges()">
                 </div>
-                <div class="relative w-full md:w-1/3">
+                <div class="relative w-full md:w-1/4">
                     <select id="filterStatus" onchange="filterCharges()"
                         class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded text-xs focus:border-zinc-900 outline-none transition-colors appearance-none cursor-pointer shadow-sm">
                         <option value="">Todos los Estados</option>
+                        <option value="Verificar Pago">Verificar Pago</option>
                         <option value="Pago Pendiente">Pago Pendiente</option>
                         <option value="Vencido">Vencido</option>
                         <option value="Pagado">Pagado</option>
                         <option value="Al corriente">Al corriente</option>
+                        <option value="Cancelado">Cancelado</option>
+                    </select>
+                    <i
+                        class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs pointer-events-none"></i>
+                </div>
+                <div class="relative w-full md:w-1/4">
+                    <select id="filterSucursalCharges" onchange="filterCharges()"
+                        class="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded text-xs focus:border-zinc-900 outline-none transition-colors appearance-none cursor-pointer shadow-sm">
+                        <option value="">Todas las Formas</option>
+                        <option value="online">Online</option>
+                        <option value="presencial">Presencial</option>
                     </select>
                     <i
                         class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs pointer-events-none"></i>
@@ -332,11 +361,29 @@ if ($res_ciclos) {
                             $rowClass = "bg-rose-50/30";
                             $debtClass = "text-rose-600";
                         }
+
+                        // Highlight logic for Pending Verification (Moved Before Render)
+                        $badgeColor = 'bg-zinc-100 text-zinc-500';
+                        if ($cargo['estado'] === 'Al corriente')
+                            $badgeColor = 'bg-emerald-100 text-emerald-700';
+                        if ($cargo['estado'] === 'Pago Pendiente')
+                            $badgeColor = 'bg-amber-100 text-amber-700';
+                        if ($cargo['estado'] === 'Vencido')
+                            $badgeColor = 'bg-rose-100 text-rose-700';
+                        if ($cargo['estado'] === 'Parcialmente Pagado')
+                            $badgeColor = 'bg-blue-100 text-blue-700';
+
+                        if (!empty($cargo['comprobante_url']) && $cargo['estado'] !== 'Pagado') {
+                            $badgeColor = 'bg-purple-600 text-white animate-pulse shadow-lg ring-2 ring-purple-300';
+                            $cargo['estado'] = 'Verificar Pago'; // Visual override & Data Attribute Fix
+                        }
+
+                        $sucursalType = strtolower($cargo['forma'] ?? 'presencial');
                         ?>
                         <tr class="hover:bg-zinc-50 transition-colors group charge-row <?php echo $rowClass; ?>"
                             data-student="<?php echo strtolower(htmlspecialchars($cargo['nombre'])); ?>"
                             data-concept="<?php echo strtolower(htmlspecialchars($cargo['concepto'])); ?>"
-                            data-status="<?php echo $cargo['estado']; ?>">
+                            data-status="<?php echo $cargo['estado']; ?>" data-sucursal="<?php echo $sucursalType; ?>">
                             <td class="px-6 py-4">
                                 <input type="checkbox"
                                     class="charge-check rounded border-zinc-300 text-zinc-900 focus:ring-0 cursor-pointer"
@@ -361,23 +408,6 @@ if ($res_ciclos) {
                             </td>
 
                             <td class="px-6 py-4 text-center">
-                                <?php
-                                $badgeColor = 'bg-zinc-100 text-zinc-500';
-                                if ($cargo['estado'] === 'Al corriente')
-                                    $badgeColor = 'bg-emerald-100 text-emerald-700';
-                                if ($cargo['estado'] === 'Pago Pendiente')
-                                    $badgeColor = 'bg-amber-100 text-amber-700';
-                                if ($cargo['estado'] === 'Vencido')
-                                    $badgeColor = 'bg-rose-100 text-rose-700';
-                                if ($cargo['estado'] === 'Parcialmente Pagado')
-                                    $badgeColor = 'bg-blue-100 text-blue-700';
-
-                                // Highlight logic for Pending Verification
-                                if (!empty($cargo['comprobante_url']) && $cargo['estado'] !== 'Pagado') {
-                                    $badgeColor = 'bg-purple-600 text-white animate-pulse shadow-lg ring-2 ring-purple-300';
-                                    $cargo['estado'] = 'Verificar Pago'; // Visual override
-                                }
-                                ?>
                                 <span
                                     class="px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-widest whitespace-nowrap flex items-center justify-center <?php echo $badgeColor; ?>">
                                     <?php echo $cargo['estado']; ?>
@@ -484,6 +514,14 @@ if ($res_ciclos) {
                         onkeyup="filterHistory()">
                 </div>
                 <div class="relative flex-1">
+                    <select id="filterSucursalHist" onchange="filterHistory()"
+                        class="w-full px-3 py-1.5 text-xs border border-zinc-200 rounded focus:border-zinc-900 outline-none bg-white cursor-pointer">
+                        <option value="">Todas las Formas</option>
+                        <option value="online">Online</option>
+                        <option value="presencial">Presencial</option>
+                    </select>
+                </div>
+                <div class="relative flex-1">
                     <i class="fas fa-tag absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 text-[10px]"></i>
                     <input type="text" id="histSearchConcept" placeholder="Buscar Concepto..."
                         class="w-full pl-6 pr-3 py-1.5 text-xs border border-zinc-200 rounded focus:border-zinc-900 outline-none"
@@ -498,6 +536,7 @@ if ($res_ciclos) {
                     <tr>
                         <th class="px-6 py-4 font-medium">Alumno</th>
                         <th class="px-6 py-4 font-medium">Concepto</th>
+                        <th class="px-6 py-4 font-medium">Cuenta Rec.</th>
                         <th class="px-6 py-4 font-medium">Fecha</th>
                         <th class="px-6 py-4 font-medium text-center">Estado</th>
                         <th class="px-6 py-4 font-medium text-right">Monto</th>
@@ -518,10 +557,15 @@ if ($res_ciclos) {
                             if ($hist['estado'] === 'Cancelado')
                                 $hClass = "bg-rose-50/10";
                             $hBadge = $hist['estado'] === 'Pagado' ? "bg-emerald-100 text-emerald-700" : ($hist['estado'] === 'Cancelado' ? "bg-rose-100 text-rose-700" : "bg-zinc-100 text-zinc-500");
+                            // Historical records in `cargos_historicos` array come from same query or need separate fix?
+                            // Logic: The array $cargos_historicos is built from $res_cargos loop in PHP lines ~92.
+                            // So it inherits 'forma' from $row['forma'].
+                            $sucursalType = strtolower($hist['forma'] ?? 'presencial');
                             ?>
                             <tr class="hover:bg-zinc-50 transition-colors history-row <?php echo $hClass; ?>"
                                 data-student="<?php echo strtolower(htmlspecialchars($hist['nombre'])); ?>"
-                                data-concept="<?php echo strtolower(htmlspecialchars($hist['concepto'])); ?>">
+                                data-concept="<?php echo strtolower(htmlspecialchars($hist['concepto'])); ?>"
+                                data-sucursal="<?php echo $sucursalType; ?>">
                                 <td class="px-6 py-4 font-bold text-zinc-700"><?php echo htmlspecialchars($hist['nombre']); ?>
                                 </td>
                                 <td class="px-6 py-4 text-zinc-600">
@@ -530,6 +574,16 @@ if ($res_ciclos) {
                                         <?php if ($hist['metodo_pago'])
                                             echo "Método: " . $hist['metodo_pago']; ?>
                                     </div>
+                                </td>
+                                <td class="px-6 py-4 text-xs">
+                                    <?php if (!empty($hist['banco_receptor'])): ?>
+                                        <p class="font-bold text-zinc-700"><?php echo htmlspecialchars($hist['banco_receptor']); ?>
+                                        </p>
+                                        <p class="text-[10px] text-zinc-500 uppercase">
+                                            <?php echo htmlspecialchars($hist['titular_receptor']); ?></p>
+                                    <?php else: ?>
+                                        <span class="text-zinc-300 italic">--</span>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="px-6 py-4 text-zinc-500 font-mono text-xs">
                                     <?php echo $hist['fecha_pago'] ? date('d/m/Y H:i', strtotime($hist['fecha_pago'])) : ($hist['updated_at'] ? date('d/m/Y', strtotime($hist['updated_at'])) : '-'); ?>
@@ -962,18 +1016,22 @@ if ($res_ciclos) {
     </div>
 
     <!-- Validation Actions -->
-    <div class="flex gap-4" id="receiptActions">
-        <input type="hidden" id="valChargeId">
-        <button onclick="validateReceipt('rejected')"
-            class="px-6 py-3 bg-rose-600 text-white font-bold rounded hover:bg-rose-500 transition-all shadow-lg hover:shadow-rose-500/20">
-            <i class="fas fa-times mr-2"></i> Rechazar
-        </button>
-        <button onclick="validateReceipt('approved')"
-            class="px-6 py-3 bg-emerald-600 text-white font-bold rounded hover:bg-emerald-500 transition-all shadow-lg hover:shadow-emerald-500/20">
-            <i class="fas fa-check mr-2"></i> Validar Pago
-        </button>
+    <div class="flex flex-col items-center gap-4" id="receiptActions">
+        <input type="text" id="rejectReason" placeholder="Motivo de rechazo (Opcional si se valida)"
+            class="w-full max-w-md px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-zinc-100 text-sm focus:border-white outline-none placeholder-zinc-500">
+
+        <div class="flex gap-4">
+            <input type="hidden" id="valChargeId">
+            <button onclick="validateReceipt('rejected')"
+                class="px-6 py-3 bg-rose-600 text-white font-bold rounded hover:bg-rose-500 transition-all shadow-lg hover:shadow-rose-500/20">
+                <i class="fas fa-times mr-2"></i> Rechazar
+            </button>
+            <button onclick="validateReceipt('approved')"
+                class="px-6 py-3 bg-emerald-600 text-white font-bold rounded hover:bg-emerald-500 transition-all shadow-lg hover:shadow-emerald-500/20">
+                <i class="fas fa-check mr-2"></i> Validar Pago
+            </button>
+        </div>
     </div>
-</div>
 </div>
 
 
@@ -1041,10 +1099,43 @@ if ($res_ciclos) {
                     class="w-full px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none font-bold text-center">
             </div>
             <div class="md:col-span-2">
-                <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Concepto</label>
-                <input type="text" id="ticketConcept" value="Venta de Boletos - Evento X"
-                    class="w-full px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none">
+                <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Evento</label>
+                <div class="flex gap-2">
+                    <select id="ticketEventSelect"
+                        class="flex-1 px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none bg-white">
+                        <option value="">Seleccione un evento...</option>
+                    </select>
+                    <button onclick="createNewEvent()"
+                        class="px-3 py-2 bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-colors"
+                        title="Crear Nuevo Evento">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <!-- <button onclick="deactivateEvent()" class="px-3 py-2 bg-white border border-zinc-200 text-zinc-400 rounded hover:text-rose-500 hover:border-rose-500 transition-colors" title="Ocultar Evento">
+                        <i class="fas fa-trash-alt"></i>
+                    </button> -->
+                </div>
             </div>
+        </div>
+
+        <!-- Quick Select Toolbar (Tickets) -->
+        <div class="px-6 py-3 bg-zinc-50 border-b border-zinc-100 flex items-center gap-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-zinc-400">Selección Rápida:</span>
+            <button onclick="setTicketSelection('all')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 shadow-sm transition-colors">
+                Todos
+            </button>
+            <button onclick="setTicketSelection('online')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 shadow-sm transition-colors">
+                Online
+            </button>
+            <button onclick="setTicketSelection('presencial')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:border-blue-200 shadow-sm transition-colors">
+                Presencial
+            </button>
+            <button onclick="setTicketSelection('none')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 shadow-sm transition-colors">
+                Ninguno
+            </button>
         </div>
 
         <!-- List -->
@@ -1057,15 +1148,18 @@ if ($res_ciclos) {
                                 class="rounded border-zinc-300 text-zinc-900 focus:ring-0">
                         </th>
                         <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider">Alumno</th>
+                        <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider text-center">Forma</th>
                         <th class="px-6 py-3 w-32 font-medium uppercase text-xs tracking-wider text-center">Cantidad
                         </th>
                         <th class="px-6 py-3 w-32 font-medium uppercase text-xs tracking-wider text-right">Total</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-50">
-                    <?php foreach ($alumnos_config as $alum): ?>
+                    <?php foreach ($alumnos_config as $alum):
+                        $forma = strtolower($alum['forma'] ?? 'presencial');
+                        ?>
                         <tr class="hover:bg-zinc-50 transition-colors ticket-row"
-                            data-id="<?php echo $alum['alumno_id']; ?>">
+                            data-id="<?php echo $alum['alumno_id']; ?>" data-forma="<?php echo $forma; ?>">
                             <td class="px-6 py-3">
                                 <input type="checkbox"
                                     class="ticket-check rounded border-zinc-300 text-zinc-900 focus:ring-0"
@@ -1073,6 +1167,15 @@ if ($res_ciclos) {
                             </td>
                             <td class="px-6 py-3 text-zinc-700 font-medium">
                                 <?php echo htmlspecialchars($alum['nombre']); ?>
+                            </td>
+                            <td class="px-6 py-3 text-center">
+                                <?php if ($forma === 'online'): ?>
+                                    <span
+                                        class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Online</span>
+                                <?php else: ?>
+                                    <span
+                                        class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">Presencial</span>
+                                <?php endif; ?>
                             </td>
                             <td class="px-6 py-3 text-center">
                                 <input type="number" value="1" min="1"
@@ -1151,6 +1254,30 @@ if ($res_ciclos) {
             </div>
         </div>
 
+        <!-- Quick Select Toolbar -->
+        <div class="px-6 py-3 bg-zinc-50 border-b border-zinc-100 flex items-center gap-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-zinc-400">Selección Rápida:</span>
+            <button onclick="setRegistrationSelection('all')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 shadow-sm transition-colors">
+                Todos
+            </button>
+            <button onclick="setRegistrationSelection('online')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200 shadow-sm transition-colors">
+                Online
+            </button>
+            <button onclick="setRegistrationSelection('presencial')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:border-blue-200 shadow-sm transition-colors">
+                Presencial
+            </button>
+            <button onclick="setRegistrationSelection('none')"
+                class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 shadow-sm transition-colors">
+                Ninguno
+            </button>
+            <div class="ml-auto text-xs text-zinc-400">
+                <span id="regSelectedCount">0</span> seleccionados
+            </div>
+        </div>
+
         <!-- List -->
         <div class="flex-1 overflow-y-auto p-0">
             <table class="w-full text-left text-sm">
@@ -1161,19 +1288,32 @@ if ($res_ciclos) {
                                 class="rounded border-zinc-300 text-zinc-900 focus:ring-0">
                         </th>
                         <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider">Alumno</th>
+                        <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider text-center">Forma</th>
                         <th class="px-6 py-3 w-32 font-medium uppercase text-xs tracking-wider text-right">Monto Base
                         </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-50">
-                    <?php foreach ($alumnos_config as $alum): ?>
-                        <tr class="hover:bg-zinc-50 transition-colors reg-row" data-id="<?php echo $alum['alumno_id']; ?>">
+                    <?php foreach ($alumnos_config as $alum):
+                        $forma = strtolower($alum['forma'] ?? 'presencial');
+                        ?>
+                        <tr class="hover:bg-zinc-50 transition-colors reg-row" data-id="<?php echo $alum['alumno_id']; ?>"
+                            data-forma="<?php echo $forma; ?>">
                             <td class="px-6 py-3">
                                 <input type="checkbox" class="reg-check rounded border-zinc-300 text-zinc-900 focus:ring-0"
                                     onchange="updateRegCount()">
                             </td>
                             <td class="px-6 py-3 text-zinc-700 font-medium">
                                 <?php echo htmlspecialchars($alum['nombre']); ?>
+                            </td>
+                            <td class="px-6 py-3 text-center">
+                                <?php if ($forma === 'online'): ?>
+                                    <span
+                                        class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Online</span>
+                                <?php else: ?>
+                                    <span
+                                        class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">Presencial</span>
+                                <?php endif; ?>
                             </td>
                             <td class="px-6 py-3 text-right font-bold text-zinc-900">
                                 <input type="hidden" class="reg-amount" value="<?php echo $alum['inscripcion_base']; ?>">
@@ -1301,79 +1441,91 @@ if ($res_ciclos) {
 
         // Use GET parameter logic or append to URL since action is usually GET for fetch
         fetch('../../back/admin_actions_finanzas.php?action=fetch_history&charge_id=' + id)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    if (data.data.length === 0) {
-                        container.innerHTML = '<div class="p-8 text-center text-zinc-400 text-xs">No hay movimientos registrados.</div>';
-                        return;
-                    }
-
-                    let html = '<div class="relative pl-8 pr-6 py-6 border-l-2 border-zinc-200 ml-6 space-y-8">';
-
-                    data.data.forEach(event => {
-                        let icon = 'fa-circle';
-                        let color = 'bg-zinc-200 text-zinc-400';
-                        let borderColor = 'border-zinc-200';
-                        let titleVal = event.tipo_evento;
-
-                        if (event.tipo_evento === 'CREACION') {
-                            icon = 'fa-plus';
-                            color = 'bg-zinc-900 text-white';
-                            borderColor = 'border-zinc-900';
-                            titleVal = 'Cargo Generado';
-                        } else if (event.tipo_evento === 'AJUSTE') {
-                            icon = 'fa-wrench';
-                            color = 'bg-amber-400 text-white';
-                            borderColor = 'border-amber-400';
-                            titleVal = 'Ajuste Manual';
-                        } else if (event.tipo_evento === 'PAGO') {
-                            icon = 'fa-check';
-                            color = 'bg-emerald-500 text-white';
-                            borderColor = 'border-emerald-500';
-                            titleVal = 'Pago Recibido';
-                        } else if (event.tipo_evento === 'VENCIMIENTO') {
-                            icon = 'fa-clock';
-                            color = 'bg-rose-500 text-white';
-                            borderColor = 'border-rose-500';
-                            titleVal = 'Vencimiento y Penalización';
-                        } else if (event.tipo_evento === 'CANCELACION') {
-                            icon = 'fa-trash-alt';
-                            color = 'bg-rose-600 text-white';
-                            borderColor = 'border-rose-600';
-                            titleVal = 'Cancelación';
+            .then(response => response.text())
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        if (data.data.events.length === 0 && data.data.payments.length === 0) {
+                            container.innerHTML = '<div class="p-8 text-center text-zinc-400 text-xs">No hay movimientos registrados.</div>';
+                            return;
                         }
 
-                        // Format Date
-                        const dateObj = new Date(event.fecha);
-                        const day = dateObj.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
-                        const time = dateObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                        let html = '<div class="relative pl-8 pr-6 py-6 border-l-2 border-zinc-200 ml-6 space-y-8">';
 
-                        html += `
-                        <div class="relative">
-                            <span class="absolute -left-[41px] top-0 w-8 h-8 rounded-full flex items-center justify-center ${color} border-2 ${borderColor} shadow-sm z-10">
-                                <i class="fas ${icon} text-[10px]"></i>
-                            </span>
-                            <div>
-                                <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-0.5">${day} <span class="text-zinc-300 font-normal">| ${time}</span></p>
-                                <h5 class="text-xs font-bold text-zinc-800 mb-1">${titleVal}</h5>
-                                <p class="text-xs text-zinc-500 leading-relaxed font-light bg-white p-2 rounded border border-zinc-100 shadow-sm">
-                                    ${event.descripcion}
-                                </p>
-                            </div>
-                        </div>
-                    `;
-                    });
+                        // Render Events
+                        data.data.events.forEach(event => {
+                            let icon = 'fa-circle';
+                            let color = 'bg-zinc-200 text-zinc-400';
+                            let borderColor = 'border-zinc-200';
+                            let titleVal = event.tipo_evento;
 
-                    html += '</div>';
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = '<div class="p-4 text-center text-rose-500 text-xs">Error al cargar historial.</div>';
+                            if (event.tipo_evento === 'CREACION') {
+                                icon = 'fa-plus';
+                                color = 'bg-zinc-900 text-white';
+                                borderColor = 'border-zinc-900';
+                                titleVal = 'Cargo Generado';
+                            } else if (event.tipo_evento === 'AJUSTE') {
+                                icon = 'fa-wrench';
+                                color = 'bg-amber-400 text-white';
+                                borderColor = 'border-amber-400';
+                                titleVal = 'Ajuste Manual';
+                            } else if (event.tipo_evento === 'PAGO') {
+                                icon = 'fa-check';
+                                color = 'bg-emerald-500 text-white';
+                                borderColor = 'border-emerald-500';
+                                titleVal = 'Pago Recibido';
+                            } else if (event.tipo_evento === 'VENCIMIENTO') {
+                                icon = 'fa-clock';
+                                color = 'bg-rose-500 text-white';
+                                borderColor = 'border-rose-500';
+                                titleVal = 'Vencimiento y Penalización';
+                            } else if (event.tipo_evento === 'CANCELACION') {
+                                icon = 'fa-trash-alt';
+                                color = 'bg-rose-600 text-white';
+                                borderColor = 'border-rose-600';
+                                titleVal = 'Cancelación';
+                            } else if (event.tipo_evento === 'RECORDATORIO' || event.tipo_evento === 'OTRO') {
+                                icon = 'fa-bell';
+                                color = 'bg-blue-400 text-white';
+                                borderColor = 'border-blue-400';
+                                titleVal = 'Notificación';
+                            }
+
+                            const dateObj = new Date(event.fecha_evento); // Fix date field name
+                            const day = dateObj.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+                            const time = dateObj.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+                            html += `
+                             <div class="relative">
+                                 <span class="absolute -left-[41px] top-0 w-8 h-8 rounded-full flex items-center justify-center ${color} border-2 ${borderColor} shadow-sm z-10">
+                                     <i class="fas ${icon} text-[10px]"></i>
+                                 </span>
+                                 <div>
+                                     <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-0.5">${day} <span class="text-zinc-300 font-normal">| ${time}</span></p>
+                                     <h5 class="text-xs font-bold text-zinc-800 mb-1">${titleVal}</h5>
+                                     <p class="text-xs text-zinc-500 leading-relaxed font-light bg-white p-2 rounded border border-zinc-100 shadow-sm">
+                                         ${event.descripcion}
+                                     </p>
+                                 </div>
+                             </div>
+                             `;
+                        });
+
+                        html += '</div>';
+                        container.innerHTML = html;
+                    } else {
+                        container.innerHTML = `<div class="p-4 text-center text-rose-500 text-xs">${data.message}</div>`;
+                    }
+                } catch (e) {
+                    console.error('JSON Error:', e);
+                    console.log('Raw text:', text);
+                    container.innerHTML = `<div class="p-4 text-center text-rose-500 text-xs">Error de datos. <br>Raw: ${text.substring(0, 50)}...</div>`;
                 }
             })
             .catch(err => {
                 console.error(err);
-                container.innerHTML = '<div class="p-4 text-center text-rose-500 text-xs">Error de conexión.</div>';
+                container.innerHTML = '<div class="p-4 text-center text-rose-500 text-xs">Error de conexión fatal.</div>';
             });
     }
 
@@ -1483,6 +1635,7 @@ if ($res_ciclos) {
         const actions = document.getElementById('receiptActions');
 
         // Reset
+        document.getElementById('rejectReason').value = '';
         imgContainer.classList.add('hidden');
         img.classList.add('hidden');
         digital.classList.add('hidden');
@@ -1522,13 +1675,25 @@ if ($res_ciclos) {
 
     function validateReceipt(status) {
         const id = document.getElementById('valChargeId').value;
-        const confirmMsg = status === 'approved' ? '¿Validar este pago?' : '¿Rechazar este comprobante?';
-        if (!confirm(confirmMsg)) return;
+        const reasonInput = document.getElementById('rejectReason');
+        let reason = reasonInput.value.trim();
+
+        if (status === 'rejected') {
+            if (reason === '') {
+                alert('Por favor, ingresa el motivo del rechazo en el campo de texto.');
+                reasonInput.focus();
+                return;
+            }
+            if (!confirm('¿Confirmas que deseas rechazar este comprobante?')) return;
+        } else {
+            if (!confirm('¿Validar este pago?')) return;
+        }
 
         const formData = new FormData();
         formData.append('action', 'validate_receipt');
         formData.append('charge_id', id);
         formData.append('status', status);
+        if (reason) formData.append('reason', reason);
 
         fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
             .then(res => res.json())
@@ -1585,10 +1750,34 @@ if ($res_ciclos) {
     }
 
     function toggleAllTickets(source) {
-        const checkboxes = document.querySelectorAll('.ticket-check');
-        checkboxes.forEach(cb => {
+        document.querySelectorAll('.ticket-check').forEach(cb => {
             cb.checked = source.checked;
             updateRowTotal(cb);
+        });
+        updateTicketCount();
+    }
+
+    function setTicketSelection(mode) {
+        const checkboxes = document.querySelectorAll('.ticket-check');
+        checkboxes.forEach(cb => {
+            const row = cb.closest('tr');
+            if (!row) return;
+            const forma = row.dataset.forma || 'presencial';
+
+            let shouldCheck = false;
+            if (mode === 'all') {
+                shouldCheck = true;
+            } else if (mode === 'none') {
+                shouldCheck = false;
+            } else if (mode === 'online') {
+                shouldCheck = (forma === 'online');
+            } else if (mode === 'presencial') {
+                shouldCheck = (forma === 'presencial');
+
+            }
+
+            cb.checked = shouldCheck;
+            updateRowTotal(cb); // Update status and totals
         });
         updateTicketCount();
     }
@@ -1632,14 +1821,80 @@ if ($res_ciclos) {
         });
     });
 
+    function openTicketModal() {
+        document.getElementById('ticketModal').classList.remove('hidden');
+        document.querySelectorAll('.ticket-check').forEach(c => c.checked = false);
+        updateRowTotal(document.querySelector('.ticket-check')); // Reset totals
+        updateTicketCount();
+        loadTicketEvents();
+    }
+
+    function loadTicketEvents() {
+        const select = document.getElementById('ticketEventSelect');
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">Cargando...</option>';
+
+        fetch('../../back/admin_actions_finanzas.php?action=get_events')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    let html = '<option value="">Seleccione un evento...</option>';
+                    data.data.forEach(ev => {
+                        const sel = ev.id == currentVal ? 'selected' : '';
+                        html += `<option value="${ev.id}" ${sel}>${ev.nombre}</option>`;
+                    });
+                    select.innerHTML = html;
+                } else {
+                    select.innerHTML = '<option value="">Error al cargar</option>';
+                    console.error(data.message);
+                }
+            })
+            .catch(err => {
+                select.innerHTML = '<option value="">Error de conexión</option>';
+                console.error(err);
+            });
+    }
+
+    function createNewEvent() {
+        const nombre = prompt("Nombre del nuevo evento:");
+        if (!nombre || !nombre.trim()) return;
+
+        const formData = new FormData();
+        formData.append('action', 'add_event');
+        formData.append('nombre', nombre.trim());
+        formData.append('fecha', new Date().toISOString().split('T')[0]);
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Evento creado: ' + data.data.nombre);
+                    loadTicketEvents(); // Reload list
+                    // Auto select? loadTicketEvents is async, so tricky unless we pass callback or promise. 
+                    // For now simple reload is fine, user can select.
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+    }
+
     function submitTicketSales() {
-        const concept = document.getElementById('ticketConcept').value;
+        const eventId = document.getElementById('ticketEventSelect').value;
+        const select = document.getElementById('ticketEventSelect');
+        const eventName = select.options[select.selectedIndex]?.text || 'Evento';
         const price = parseFloat(document.getElementById('ticketPrice').value) || 0;
 
-        if (!concept || price <= 0) {
-            alert('Revise el concepto y costo unitario.');
+        if (!eventId) {
+            alert('Por favor seleccione un evento.');
             return;
         }
+
+        if (price <= 0) {
+            alert('Revise el costo unitario.');
+            return;
+        }
+
+        const concept = "Boletos: " + eventName;
 
         const selected = [];
         document.querySelectorAll('.ticket-check:checked').forEach(cb => {
@@ -1661,6 +1916,7 @@ if ($res_ciclos) {
         const formData = new FormData();
         formData.append('action', 'generate_ticket_charges');
         formData.append('concept', concept);
+        formData.append('evento_id', eventId);
         formData.append('data', JSON.stringify(selected));
 
         fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
@@ -1682,15 +1938,7 @@ if ($res_ciclos) {
         document.getElementById('regCount').innerText = '0';
     }
 
-    function toggleAllReg(source) {
-        document.querySelectorAll('.reg-check').forEach(cb => cb.checked = source.checked);
-        updateRegCount();
-    }
 
-    function updateRegCount() {
-        const count = document.querySelectorAll('.reg-check:checked').length;
-        document.getElementById('regCount').innerText = count;
-    }
 
     function submitRegistrationCharges() {
         const cycle = document.getElementById('regCycle').value;
@@ -1877,12 +2125,15 @@ if ($res_ciclos) {
     // Filtering Logic
     const searchConfig = document.getElementById('searchConfig');
     const filterBeca = document.getElementById('filterBeca');
+    const filterSucursalConfig = document.getElementById('filterSucursalConfig');
 
-    if (searchConfig && filterBeca) {
+    if (searchConfig && filterBeca && filterSucursalConfig) {
         function filterConfigTable() {
             const searchText = searchConfig.value.toLowerCase();
             const filterState = filterBeca.value;
+            const filterSucursal = filterSucursalConfig.value;
             const rows = document.querySelectorAll('#view-config .row-editable');
+            let visibleCount = 0;
 
             rows.forEach(row => {
                 const nameCell = row.querySelector('td:first-child');
@@ -1891,8 +2142,11 @@ if ($res_ciclos) {
                 const becaInput = row.querySelector('.input-beca');
                 const becaValue = becaInput ? parseFloat(becaInput.value) : 0;
 
+                const sucursalType = row.dataset.sucursal || 'presencial';
+
                 let matchesSearch = name.includes(searchText);
                 let matchesFilter = true;
+                let matchesSucursal = true;
 
                 if (filterState === 'con_beca') {
                     matchesFilter = (becaValue > 0);
@@ -1900,16 +2154,26 @@ if ($res_ciclos) {
                     matchesFilter = (becaValue <= 0 || isNaN(becaValue));
                 }
 
-                if (matchesSearch && matchesFilter) {
+                if (filterSucursal !== 'all') {
+                    matchesSucursal = (sucursalType === filterSucursal);
+                }
+
+                if (matchesSearch && matchesFilter && matchesSucursal) {
                     row.style.display = '';
+                    visibleCount++;
                 } else {
                     row.style.display = 'none';
                 }
             });
+            const countElement = document.getElementById('configRecordCount');
+            if (countElement) countElement.innerText = visibleCount;
         }
 
         searchConfig.addEventListener('keyup', filterConfigTable);
         filterBeca.addEventListener('change', filterConfigTable);
+        filterSucursalConfig.addEventListener('change', filterConfigTable);
+        // Initial count
+        filterConfigTable();
     }
 
     function closeNewAssignmentModal() {
@@ -1921,6 +2185,7 @@ if ($res_ciclos) {
         const termStudent = document.getElementById('filterStudent').value.toLowerCase();
         const termConcept = document.getElementById('filterConcept').value.toLowerCase();
         const termStatus = document.getElementById('filterStatus').value;
+        const termSucursal = document.getElementById('filterSucursalCharges').value;
 
         const rows = document.querySelectorAll('.charge-row');
         let visibleCount = 0;
@@ -1929,12 +2194,14 @@ if ($res_ciclos) {
             const student = row.dataset.student || '';
             const concept = row.dataset.concept || '';
             const status = row.dataset.status || '';
+            const sucursal = row.dataset.sucursal || 'presencial';
 
             const matchStudent = student.includes(termStudent);
             const matchConcept = concept.includes(termConcept);
             const matchStatus = termStatus === '' || status === termStatus;
+            const matchSucursal = termSucursal === '' || sucursal === termSucursal;
 
-            if (matchStudent && matchConcept && matchStatus) {
+            if (matchStudent && matchConcept && matchStatus && matchSucursal) {
                 row.style.display = '';
                 visibleCount++;
             } else {
@@ -1963,6 +2230,7 @@ if ($res_ciclos) {
     function renderHistoryTable() {
         const termStudent = document.getElementById('histSearchStudent').value.toLowerCase();
         const termConcept = document.getElementById('histSearchConcept').value.toLowerCase();
+        const termSucursal = document.getElementById('filterSucursalHist').value;
 
         const rows = document.querySelectorAll('.history-row');
         let visibleRows = [];
@@ -1971,8 +2239,13 @@ if ($res_ciclos) {
         rows.forEach(row => {
             const student = row.dataset.student || '';
             const concept = row.dataset.concept || '';
+            const sucursal = row.dataset.sucursal || 'presencial';
 
-            if (student.includes(termStudent) && concept.includes(termConcept)) {
+            const matchStudent = student.includes(termStudent);
+            const matchConcept = concept.includes(termConcept);
+            const matchSucursal = termSucursal === '' || sucursal === termSucursal;
+
+            if (matchStudent && matchConcept && matchSucursal) {
                 visibleRows.push(row);
                 row.classList.remove('hidden-by-filter'); // Only used as marker if needed, but we toggle display manually
             } else {
@@ -2084,6 +2357,47 @@ if ($res_ciclos) {
         updateBulkUI();
     }
 
+    // --- REGISTRATION MODAL LOGIC ---
+    function toggleAllReg(source) {
+        document.querySelectorAll('.reg-check').forEach(cb => {
+            // Only toggle visible rows if we implemented filtering, but here we just toggle all
+            cb.checked = source.checked;
+        });
+        updateRegCount();
+    }
+
+    function setRegistrationSelection(mode) {
+        const checkboxes = document.querySelectorAll('.reg-check');
+        checkboxes.forEach(cb => {
+            const row = cb.closest('tr');
+            if (!row) return;
+            const forma = row.dataset.forma || 'presencial';
+
+            if (mode === 'all') {
+                cb.checked = true;
+            } else if (mode === 'none') {
+                cb.checked = false;
+            } else if (mode === 'online') {
+                cb.checked = (forma === 'online');
+            } else if (mode === 'presencial') {
+                cb.checked = (forma === 'presencial');
+            }
+        });
+        updateRegCount();
+    }
+
+    function updateRegCount() {
+        const count = document.querySelectorAll('.reg-check:checked').length;
+
+        // Update new toolbar counter
+        const elNew = document.getElementById('regSelectedCount');
+        if (elNew) elNew.innerText = count;
+
+        // Update old footer counter
+        const elOld = document.getElementById('regCount');
+        if (elOld) elOld.innerText = count;
+    }
+
     function updateBulkUI() {
         const count = document.querySelectorAll('.charge-check:checked').length;
         const btn = document.getElementById('btnBulkDelete');
@@ -2159,37 +2473,7 @@ if ($res_ciclos) {
             switchTab('cobranza');
         }
     });
-    // VALIDACION DE COMPROBANTES
-    function validateReceipt(status) {
-        const id = document.getElementById('valChargeId').value;
-        if (!id) return;
 
-        let msg = (status === 'approved') ?
-            '¿Aceptar comprobante y marcar como PAGADO?' :
-            '¿Rechazar comprobante? Se notificará al alumno (simulado) y el estatus volverá a Pendiente.';
-
-        if (!confirm(msg)) return;
-
-        const formData = new FormData();
-        formData.append('action', 'verify_payment');
-        formData.append('charge_id', id);
-        formData.append('status', status);
-
-        fetch('../../back/admin_actions_finanzas.php', {
-            method: 'POST',
-            body: formData
-        })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message);
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(err => alert('Error de red: ' + err));
-    }
 </script>
 
 <style>

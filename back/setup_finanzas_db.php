@@ -89,10 +89,9 @@ $sql_historial = "CREATE TABLE IF NOT EXISTS finanzas_cargos_historial (
 if ($conn->query($sql_historial) === TRUE) {
     echo "Tabla 'finanzas_cargos_historial' creada o verificada correctamente.<br>";
 
-    // Ensure ENUM includes 'CANCELACION'
-    // Running this blindly is usually fine for ENUMs if we just append
-    $conn->query("ALTER TABLE finanzas_cargos_historial MODIFY COLUMN tipo_evento ENUM('CREACION', 'AJUSTE', 'PAGO', 'VENCIMIENTO', 'RECORDATORIO', 'CANCELACION', 'OTRO') NOT NULL");
-    echo "ENUM de historial actualizado.<br>";
+    // Ensure ENUM includes 'CANCELACION' and 'RECHAZADO'
+    $conn->query("ALTER TABLE finanzas_cargos_historial MODIFY COLUMN tipo_evento ENUM('CREACION', 'AJUSTE', 'PAGO', 'VENCIMIENTO', 'RECORDATORIO', 'CANCELACION', 'RECHAZADO', 'OTRO') NOT NULL");
+    echo "ENUM de historial actualizado (Incluye RECHAZADO).<br>";
 
 } else {
     echo "Error creando tabla 'finanzas_cargos_historial': " . $conn->error . "<br>";

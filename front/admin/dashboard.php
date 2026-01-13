@@ -89,7 +89,8 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
             <?php
             $nav_items = [
                 'main' => ['icon' => 'fa-tachometer-alt', 'label' => 'Dashboard'],
-                'finanzas' => ['icon' => 'fa-wallet', 'label' => 'Finanzas & Cobros'], // NUEVO MODULO
+                'finanzas' => ['icon' => 'fa-wallet', 'label' => 'Finanzas & Cobros'],
+                'boletos' => ['icon' => 'fa-ticket-alt', 'label' => 'Gestión de Boletos'], // NUEVO MODULO
                 'usuarios' => ['icon' => 'fa-users', 'label' => 'Gestor de Usuarios'],
                 'ciclos' => ['icon' => 'fa-calendar-alt', 'label' => 'Gestión de Ciclos'],
                 'sucursales' => ['icon' => 'fa-building', 'label' => 'Gestión de Sucursales'],
@@ -147,7 +148,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
         <!-- Dynamic Content -->
         <div class="flex-1 overflow-y-auto p-8 md:p-12 relative">
             <?php
-            $allowed_pages = ['main', 'finanzas', 'usuarios', 'ciclos', 'sucursales', 'materias', 'asignacion', 'alumno_setup'];
+            $allowed_pages = ['main', 'finanzas', 'boletos', 'usuarios', 'ciclos', 'sucursales', 'materias', 'asignacion', 'alumno_setup'];
             if (in_array($page, $allowed_pages)) {
                 include 'body_' . $page . '.php';
             } else {
