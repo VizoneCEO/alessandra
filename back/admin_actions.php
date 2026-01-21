@@ -140,6 +140,32 @@ if (isset($_POST['action'])) {
             }
             $stmt->close();
             break;
+
+        case 'delete_account':
+            $account_id = $_POST['account_id'];
+
+            // 1. Double check usage
+            $stmt_check = $conn->prepare("SELECT COUNT(*) as count FROM Usuarios WHERE cuenta_deposito_id = ?");
+            $stmt_check->bind_param("i", $account_id);
+            $stmt_check->execute();
+            $result = $stmt_check->get_result()->fetch_assoc();
+            $users_count = $result['count'];
+            $stmt_check->close();
+
+            if ($users_count > 0) {
+                $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: No se puede eliminar una cuenta que tiene alumnos asignados.'];
+            } else {
+                // 2. Delete
+                $stmt_del = $conn->prepare("DELETE FROM Finanzas_Cuentas WHERE id = ?");
+                $stmt_del->bind_param("i", $account_id);
+                if ($stmt_del->execute()) {
+                    $_SESSION['message'] = ['type' => 'success', 'text' => 'Cuenta eliminada exitosamente.'];
+                } else {
+                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al eliminar la cuenta: ' . $stmt_del->error];
+                }
+                $stmt_del->close();
+            }
+            break;
     }
 }
 

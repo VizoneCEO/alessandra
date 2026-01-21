@@ -54,6 +54,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     case 4: // Seguridad
                         $redirect_url = '../front/seguridad/dashboard.php';
                         break;
+                    case 5: // Finanzas
+                        $redirect_url = '../front/finanzas/dashboard.php';
+                        break;
                     default:
                         // Si por alguna razón no tiene un perfil válido, lo mandamos al index
                         $redirect_url = '../index.php';

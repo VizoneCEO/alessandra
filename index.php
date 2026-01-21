@@ -111,6 +111,13 @@ if (session_status() == PHP_SESSION_NONE) {
                 </button>
             </div>
 
+            <div class="mt-4">
+                <a href="version1/index.php" 
+                   class="block w-full py-4 border border-zinc-200 text-gray-400 text-xs uppercase tracking-[0.2em] hover:border-zinc-950 hover:text-zinc-950 transition-colors duration-500 font-medium text-center">
+                   Ir a Versión 1
+                </a>
+            </div>
+
             <div class="mt-20 text-center border-t border-gray-50 pt-8">
                 <p class="text-xs text-gray-400 opacity-60 font-light">Powered by Vizone Ultra v3.0</p>
             </div>

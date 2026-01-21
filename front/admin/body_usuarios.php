@@ -144,6 +144,18 @@ while ($acc = $result_accounts->fetch_assoc()) {
                                         <?php echo htmlspecialchars($acc['titular']); ?>
                                     </p>
                                 </div>
+                                <?php if ($acc['total_students'] == 0): ?>
+                                    <button
+                                        onclick="openDeleteModal('<?php echo $acc['id']; ?>', '<?php echo htmlspecialchars($acc['banco']); ?>')"
+                                        class="text-rose-500 hover:text-rose-700 transition-colors" title="Eliminar Cuenta">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                <?php else: ?>
+                                    <button disabled class="text-rose-300 opacity-50 cursor-not-allowed"
+                                        title="No se puede eliminar: tiene alumnos asignados">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                <?php endif; ?>
                             </div>
                             <div class="text-xs text-zinc-600 font-mono space-y-0.5">
                                 <?php if ($acc['clabe']): ?>
@@ -417,7 +429,59 @@ while ($acc = $result_accounts->fetch_assoc()) {
     </div>
 </div>
 
+
+<!-- Modal Delete Account -->
+<div id="deleteAccountModal"
+    class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div
+        class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 opacity-100">
+        <form action="../../back/admin_actions.php" method="POST">
+            <div class="px-6 py-4 border-b border-zinc-100 flex justify-between items-center bg-rose-50">
+                <h5 class="font-bold text-rose-900"><i class="fas fa-exclamation-triangle mr-2"></i> Eliminar Cuenta
+                </h5>
+                <button type="button" onclick="closeDeleteModal()"
+                    class="text-rose-400 hover:text-rose-700 transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" name="action" value="delete_account">
+                <input type="hidden" id="delete_account_id" name="account_id">
+
+                <p class="text-sm text-zinc-600">
+                    ¿Estás seguro de que deseas eliminar la cuenta de <span id="delete_account_name"
+                        class="font-bold text-zinc-900"></span>?
+                </p>
+                <div class="bg-rose-50 border border-rose-100 p-3 rounded text-xs text-rose-700">
+                    <p class="font-bold mb-1">Esta acción no se puede deshacer.</p>
+                    <p>La cuenta y su historial financiero serán eliminados permanentemente si no hay registros
+                        vinculados.
+                    </p>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-zinc-50 flex justify-end gap-3">
+                <button type="button" onclick="closeDeleteModal()"
+                    class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-800 transition-colors">Cancelar</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-rose-600 text-white text-xs font-bold uppercase tracking-wider rounded hover:bg-rose-700 transition-colors">
+                    Confirmar Eliminar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    function openDeleteModal(id, name) {
+        document.getElementById('delete_account_id').value = id;
+        document.getElementById('delete_account_name').textContent = name;
+        document.getElementById('deleteAccountModal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteAccountModal').classList.add('hidden');
+    }
+
     function openAssignModal(userId, userName, currentAccountId) {
         document.getElementById('assign_user_id').value = userId;
         document.getElementById('assign_user_name').textContent = userName;
