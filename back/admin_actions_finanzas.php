@@ -1,4 +1,5 @@
 <?php
+session_start();
 header('Content-Type: application/json');
 require 'db_connect.php';
 
@@ -119,14 +120,28 @@ if ($action === 'fetch_config') {
 
 } elseif ($action === 'fetch_tickets') {
     $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
+    $mode = $_POST['mode'] ?? 'active'; // active, history, all
 
-    $sql = "SELECT b.*, e.nombre as evento, u.nombre_completo as alumno 
+    $sql = "SELECT b.*, e.nombre as evento, u.nombre_completo as alumno, u.perfil_id, e.activo as evento_activo, c.concepto as cargo_concepto
             FROM finanzas_boletos b 
             JOIN finanzas_eventos e ON b.evento_id = e.id 
-            JOIN Usuarios u ON b.alumno_id = u.id";
+            JOIN Usuarios u ON b.alumno_id = u.id
+            LEFT JOIN finanzas_cargos c ON b.cargo_id = c.id";
+
+    $where = [];
 
     if ($event_id > 0) {
-        $sql .= " WHERE b.evento_id = $event_id";
+        $where[] = "b.evento_id = $event_id";
+    }
+
+    if ($mode === 'active') {
+        $where[] = "e.activo = 1";
+    } elseif ($mode === 'history') {
+        $where[] = "e.activo = 0";
+    }
+
+    if (!empty($where)) {
+        $sql .= " WHERE " . implode(' AND ', $where);
     }
 
     $sql .= " ORDER BY b.evento_id DESC, b.folio_asiento ASC";
@@ -176,6 +191,33 @@ if ($action === 'fetch_config') {
         jsonResponse(false, 'Ticket no encontrado');
     }
 
+
+} elseif ($action === 'get_events') {
+    // Return list of events
+    $sql = "SELECT id, nombre, fecha, activo FROM finanzas_eventos ORDER BY fecha DESC, id DESC";
+    $res = $conn->query($sql);
+    $events = [];
+    if ($res) {
+        while ($r = $res->fetch_assoc()) {
+            $events[] = $r;
+        }
+    }
+    jsonResponse(true, 'Eventos cargados', $events);
+
+} elseif ($action === 'close_event') {
+    $id = intval($_POST['id']);
+    if ($id <= 0) {
+        jsonResponse(false, 'ID inválido');
+    }
+    // Set active = 0
+    $stmt = $conn->prepare("UPDATE finanzas_eventos SET activo = 0 WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    if ($stmt->execute()) {
+        jsonResponse(true, 'Evento cerrado exitosamente');
+    } else {
+        jsonResponse(false, 'Error al cerrar evento: ' . $conn->error);
+    }
+
 } elseif ($action === 'add_event') {
     $nombre = $_POST['nombre'] ?? '';
     $fecha = $_POST['fecha'] ?? date('Y-m-d');
@@ -189,6 +231,56 @@ if ($action === 'fetch_config') {
         jsonResponse(true, 'Evento creado', ['id' => $stmt->insert_id, 'nombre' => $nombre]);
     } else {
         jsonResponse(false, 'Error al crear evento');
+    }
+
+} elseif ($action === 'delete_event') {
+    $id = $_REQUEST['id'] ?? 0; // Use REQUEST to catch GET or POST
+    if (!$id)
+        jsonResponse(false, 'ID Requerido');
+
+    // Attempt delete
+    $stmt = $conn->prepare("DELETE FROM finanzas_eventos WHERE id = ?");
+    if (!$stmt) {
+        jsonResponse(false, 'Error preparing delete: ' . $conn->error);
+    }
+    $stmt->bind_param("i", $id);
+
+    try {
+        if ($stmt->execute()) {
+            jsonResponse(true, 'Evento eliminado');
+        } else {
+            jsonResponse(false, 'Error al eliminar');
+        }
+    } catch (Exception $e) {
+        if ($conn->errno == 1451) { // Foreign key constraint
+            jsonResponse(false, 'No se puede eliminar: El evento tiene tickets o cargos asociados.');
+        } else {
+            jsonResponse(false, 'Error crítico: ' . $e->getMessage());
+        }
+    }
+
+} elseif ($action === 'edit_event') {
+    $id = $_POST['id'] ?? 0;
+    $nombre = $_POST['nombre'] ?? '';
+    $fecha = $_POST['fecha'] ?? '';
+
+    if (!$id || empty($nombre))
+        jsonResponse(false, 'Datos incompletos');
+
+    if (!empty($fecha)) {
+        $sql = "UPDATE finanzas_eventos SET nombre = ?, fecha = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ssi", $nombre, $fecha, $id);
+    } else {
+        $sql = "UPDATE finanzas_eventos SET nombre = ? WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("si", $nombre, $id);
+    }
+
+    if ($stmt->execute()) {
+        jsonResponse(true, 'Evento actualizado');
+    } else {
+        jsonResponse(false, 'Error al actualizar');
     }
 
 } elseif ($action === 'fetch_charges') {
@@ -227,6 +319,18 @@ if ($action === 'fetch_config') {
     jsonResponse(true, 'Charges loaded', $data);
 
 
+
+} elseif ($action === 'fetch_staff') {
+    // Fetch users who are Admin(1), Prof(2), Security(4), or Finance(5) to assign tickets
+    $sql = "SELECT id, nombre_completo, perfil_id FROM Usuarios WHERE perfil_id IN (1, 2, 4, 5) AND estado = 'activo' ORDER BY nombre_completo ASC";
+    $res = $conn->query($sql);
+    $data = [];
+    if ($res) {
+        while ($r = $res->fetch_assoc()) {
+            $data[] = $r;
+        }
+    }
+    jsonResponse(true, 'Staff loaded', $data);
 
 } elseif ($action === 'generate_monthly_charges') {
     $mes = $_POST['mes'] ?? date('F');
@@ -284,6 +388,13 @@ if ($action === 'fetch_config') {
         jsonResponse(false, 'No se recibieron datos.');
     }
 
+    // Get Generic External User ID if needed
+    $id_externo = 0;
+    $q_ext = $conn->query("SELECT id FROM Usuarios WHERE curp = 'EXTERNO0000000000' LIMIT 1");
+    if ($q_ext && $row = $q_ext->fetch_assoc()) {
+        $id_externo = $row['id'];
+    }
+
     $count_success = 0;
     $today_vence = date('Y-m-d');
     $evento_id = isset($_POST['evento_id']) ? intval($_POST['evento_id']) : null;
@@ -292,16 +403,29 @@ if ($action === 'fetch_config') {
     $stmt = $conn->prepare($sql_insert);
 
     foreach ($items as $item) {
-        $student_id = intval($item['student_id']);
+        // Logic for Target User (Staff/Student) vs External Name
+        $student_id = intval($item['student_id'] ?? 0);
+        $external_name = $item['external_name'] ?? '';
+
         $qty = intval($item['quantity']);
         $price = floatval($item['price']);
 
-        if ($student_id <= 0 || $qty <= 0)
+        if ($qty <= 0)
             continue;
 
+        // If no ID but name provided (Model or External Staff), use Generic ID
+        if ($student_id <= 0 && !empty($external_name) && $id_externo > 0) {
+            $student_id = $id_externo;
+            // Append name to concept
+            $concept_final = $concept_base . " (" . $external_name . ")" . ($qty > 1 ? " (x$qty)" : "");
+        } else {
+            // Standard assignment
+            if ($student_id <= 0)
+                continue;
+            $concept_final = $concept_base . ($qty > 1 ? " (x$qty)" : "");
+        }
+
         $total = $qty * $price;
-        $total = $qty * $price;
-        $concept_final = $concept_base . ($qty > 1 ? " (x$qty)" : "");
 
         $stmt->bind_param("isdsii", $student_id, $concept_final, $total, $today_vence, $evento_id, $qty);
 
@@ -360,8 +484,9 @@ if ($action === 'fetch_config') {
 
     if (!$charge_id)
         jsonResponse(false, 'ID Requerido');
-    if ($monto_pago <= 0)
-        jsonResponse(false, 'El monto debe ser mayor a 0');
+    if ($monto_pago < 0)
+        jsonResponse(false, 'El monto no puede ser negativo');
+    // Allow 0 only if total is 0 (handled later or assume valid for now if original is 0)
 
     // 1. Get current charge status and totals
     $stmt_check = $conn->prepare("SELECT * FROM finanzas_cargos WHERE id = ?");
@@ -418,6 +543,10 @@ if ($action === 'fetch_config') {
         $stmt_upd->execute();
 
         $desc = "Pago de $$monto_pago registrado ($metodo). Estado: $nuevo_estado. Restante: $$saldo_restante";
+        if (!empty($_POST['nota'])) {
+            $nota = $conn->real_escape_string($_POST['nota']);
+            $desc .= " | Nota: $nota";
+        }
         log_cargo_event($conn, $charge_id, 'PAGO', $desc);
 
         // 4. Generate Tickets if Fully Paid and Linked to Event
@@ -431,9 +560,15 @@ if ($action === 'fetch_config') {
                 $alumno_id = $charge['alumno_id'];
 
                 for ($i = 0; $i < $qty_tickets; $i++) {
-                    // Get Next Folio
-                    $res_folio = $conn->query("SELECT COALESCE(MAX(folio_asiento), 0) + 1 as next_folio FROM finanzas_boletos WHERE evento_id = $evt_id");
-                    $next_folio = ($res_folio && $row_f = $res_folio->fetch_assoc()) ? $row_f['next_folio'] : 1;
+                    $is_guest = (stripos($charge['concepto'], 'Invitados') !== false);
+
+                    if ($is_guest) {
+                        // Get Next Folio only for Guests (Fill Gaps)
+                        $next_folio = get_next_available_folio($conn, $evt_id);
+                    } else {
+                        // Others get 0 or null? Let's use 0 to indicate no folio assigned
+                        $next_folio = 0;
+                    }
 
                     $ins_ticket = $conn->prepare("INSERT INTO finanzas_boletos (evento_id, alumno_id, cargo_id, pago_id, folio_asiento) VALUES (?, ?, ?, ?, ?)");
                     $ins_ticket->bind_param("iiiii", $evt_id, $alumno_id, $charge_id, $pago_id, $next_folio);
@@ -489,8 +624,8 @@ if ($action === 'fetch_config') {
 
                         for ($i = 0; $i < $qty_tickets; $i++) {
                             // Get Next Folio
-                            $res_folio = $conn->query("SELECT COALESCE(MAX(folio_asiento), 0) + 1 as next_folio FROM finanzas_boletos WHERE evento_id = $evt_id");
-                            $next_folio = ($res_folio && $row_f = $res_folio->fetch_assoc()) ? $row_f['next_folio'] : 1;
+                            // Get Next Folio (Fill Gaps)
+                            $next_folio = get_next_available_folio($conn, $evt_id);
 
                             $ins_ticket = $conn->prepare("INSERT INTO finanzas_boletos (evento_id, alumno_id, cargo_id, pago_id, folio_asiento) VALUES (?, ?, ?, ?, ?)");
                             $ins_ticket->bind_param("iiiii", $evt_id, $alumno_id, $charge_id, $pago_id, $next_folio);
@@ -600,8 +735,18 @@ if ($action === 'fetch_config') {
     $stmt->bind_param("i", $charge_id);
     $stmt->execute();
     $res = $stmt->get_result();
-    while ($r = $res->fetch_assoc())
+    while ($r = $res->fetch_assoc()) {
+        // Filter Notes for Students (or non-admins)
+        // Assuming Admin=1, Finance=5. Student=2.
+        // If user is NOT Admin (1) AND NOT Finance (5), strip the Note.
+        $pid = $_SESSION['perfil_id'] ?? 0;
+        if ($pid != 1 && $pid != 5) {
+            // Remove " | Nota: ..." suffix
+            $r['descripcion'] = preg_replace('/ \| Nota: .*$/', '', $r['descripcion']);
+            // Also handles intermediate position if I used different format, but I appended at end.
+        }
         $events[] = $r;
+    }
 
     // Fetch Partial Payments
     $payments = [];
@@ -613,21 +758,6 @@ if ($action === 'fetch_config') {
         $payments[] = $r;
 
     jsonResponse(true, 'History loaded', ['events' => $events, 'payments' => $payments]);
-
-} elseif ($action === 'pay_charge') {
-    $charge_id = $_POST['charge_id'];
-    $stmt = $conn->prepare("UPDATE finanzas_cargos SET estado = 'Pagado', fecha_pago = NOW(), metodo_pago = 'Efectivo' WHERE id = ?");
-    if ($stmt) {
-        $stmt->bind_param("i", $charge_id);
-        if ($stmt->execute()) {
-            log_cargo_event($conn, $charge_id, 'PAGO', 'Pago registrado manualmente (Efectivo).');
-            jsonResponse(true, 'Pago registrado.');
-        } else {
-            jsonResponse(false, 'Error al registrar pago: ' . $stmt->error);
-        }
-    } else {
-        jsonResponse(false, 'Error prepare: ' . $conn->error);
-    }
 
 } elseif ($action === 'delete_charges_bulk') {
     $ids = isset($_POST['ids']) ? json_decode($_POST['ids'], true) : [];
@@ -677,8 +807,150 @@ if ($action === 'fetch_config') {
         jsonResponse(false, 'Error DB: ' . $conn->error);
     }
 
+} elseif ($action === 'get_events') {
+    $mode = $_REQUEST['mode'] ?? 'active'; // Default to active for dropdowns
+    $where = ($mode === 'active') ? "WHERE activo = 1" : "";
+
+    $events = [];
+    $res = $conn->query("SELECT id, nombre, activo FROM finanzas_eventos $where ORDER BY fecha DESC");
+    if ($res) {
+        while ($r = $res->fetch_assoc()) {
+            $events[] = $r;
+        }
+        jsonResponse(true, 'Events loaded', $events);
+    } else {
+        jsonResponse(false, 'Error DB: ' . $conn->error);
+    }
+
+} elseif ($action === 'delete_ticket') {
+    $ticket_id = $_POST['ticket_id'] ?? 0;
+    if (!$ticket_id)
+        jsonResponse(false, 'Missing Ticket ID');
+
+    $stmt = $conn->prepare("DELETE FROM finanzas_boletos WHERE id = ?");
+    $stmt->bind_param("i", $ticket_id);
+
+    if ($stmt->execute()) {
+        jsonResponse(true, 'Ticket deleted successfully');
+    } else {
+        jsonResponse(false, 'Database Error: ' . $conn->error);
+    }
+
+} elseif ($action === 'export_tickets') {
+    $event_id = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
+    $mode = $_GET['mode'] ?? 'active';
+    // $filterType = $_GET['type'] ?? ''; // Optional type filtering on backend if desired
+
+    $sql = "SELECT b.id, b.folio_asiento, e.nombre as evento, u.nombre_completo as alumno, u.perfil_id, 
+            c.concepto as cargo_concepto, b.estado_uso, c.monto_original
+            FROM finanzas_boletos b 
+            JOIN finanzas_eventos e ON b.evento_id = e.id 
+            JOIN Usuarios u ON b.alumno_id = u.id
+            LEFT JOIN finanzas_cargos c ON b.cargo_id = c.id";
+
+    $where = [];
+    if ($event_id > 0)
+        $where[] = "b.evento_id = $event_id";
+    if ($mode === 'active') {
+        $where[] = "e.activo = 1";
+    } elseif ($mode === 'history') {
+        $where[] = "e.activo = 0";
+    }
+    if (!empty($where))
+        $sql .= " WHERE " . implode(' AND ', $where);
+
+    $sql .= " ORDER BY b.evento_id DESC, b.folio_asiento ASC";
+
+    $res = $conn->query($sql);
+
+    if (!$res)
+        die("Error SQL: " . $conn->error);
+
+    // HEADERS FOR DOWNLOAD
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=Boletos_' . date('Y-m-d') . '.csv');
+
+    $output = fopen('php://output', 'w');
+    fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF)); // BOM for Excel
+
+    // CSV Header
+    fputcsv($output, ['ID', 'Folio', 'Evento', 'Titular / Alumno', 'Tipo', 'Precio', 'Estado Uso']);
+
+    while ($row = $res->fetch_assoc()) {
+        // Determine Type
+        $tipo = 'Generico';
+        $concepto = $row['cargo_concepto'] ?? '';
+        $pid = intval($row['perfil_id']);
+
+        if (stripos($concepto, 'Invitado') !== false) {
+            $tipo = 'Invitado';
+        } elseif (stripos($concepto, 'Modelo') !== false) {
+            $tipo = 'Modelo';
+        } else {
+            if ($pid === 1)
+                $tipo = 'Administrativo';
+            elseif ($pid === 2)
+                $tipo = 'Alumno';
+            elseif ($pid === 3)
+                $tipo = 'Docente';
+            elseif ($pid === 4)
+                $tipo = 'Staff';
+        }
+
+        // Apply PHP-side Type Filtering if requested
+        if (!empty($_GET['type']) && stripos($tipo, $_GET['type']) === false) {
+            continue;
+        }
+
+        fputcsv($output, [
+            $row['id'],
+            ($row['folio_asiento'] > 0 ? $row['folio_asiento'] : 'S/N'),
+            $row['evento'],
+            $row['alumno'],
+            $tipo,
+            '$' . number_format($row['monto_original'] ?? 0, 2),
+            $row['estado_uso']
+        ]);
+    }
+    fclose($output);
+    exit();
+
 } else {
-    jsonResponse(false, 'Invalid Action');
+    jsonResponse(false, 'Invalid Action: (' . $action . ')');
 }
 
 $conn->close();
+
+function get_next_available_folio($conn, $evt_id)
+{
+    $evt_id = intval($evt_id);
+
+    // 1. Check if #1 is available
+    $check = $conn->query("SELECT id FROM finanzas_boletos WHERE evento_id = $evt_id AND folio_asiento = 1");
+    if ($check && $check->num_rows == 0)
+        return 1;
+
+    // 2. Find first gap
+    $sql = "SELECT t1.folio_asiento + 1 as next_val
+            FROM finanzas_boletos t1
+            LEFT JOIN finanzas_boletos t2 ON t1.folio_asiento + 1 = t2.folio_asiento 
+                                          AND t2.evento_id = $evt_id
+                                          AND t2.folio_asiento > 0
+            WHERE t1.evento_id = $evt_id
+            AND t1.folio_asiento > 0
+            AND t2.folio_asiento IS NULL
+            ORDER BY t1.folio_asiento ASC
+            LIMIT 1";
+
+    $res = $conn->query($sql);
+    if ($res && $r = $res->fetch_assoc()) {
+        return $r['next_val'];
+    }
+
+    // 3. Fallback: Max + 1
+    $res_m = $conn->query("SELECT COALESCE(MAX(folio_asiento), 0) + 1 as max_v FROM finanzas_boletos WHERE evento_id = $evt_id AND folio_asiento > 0");
+    if ($res_m && $rm = $res_m->fetch_assoc())
+        return $rm['max_v'];
+
+    return 1;
+}

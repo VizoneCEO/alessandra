@@ -135,6 +135,10 @@ if ($res_ciclos) {
             class="px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all text-zinc-500 hover:text-zinc-900">
             Histórico
         </button>
+        <button onclick="switchTab('eventos')" id="tab-eventos"
+            class="px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all text-zinc-500 hover:text-zinc-900">
+            Configuración de Eventos
+        </button>
     </div>
 </div>
 
@@ -269,9 +273,21 @@ if ($res_ciclos) {
                     class="fas fa-file-invoice-dollar mr-2"></i> Cargos Actuales y Excepciones</h6>
 
             <div class="flex gap-2">
-                <button onclick="openTicketModal()"
+                <button onclick="openTicketModal('General')"
                     class="bg-white border border-zinc-200 text-zinc-600 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 hover:border-zinc-900 hover:text-zinc-900 transition-all shadow-sm">
-                    <i class="fas fa-ticket-alt mr-2 text-violet-500"></i> Venta de Boletos
+                    <i class="fas fa-ticket-alt mr-2 text-violet-500"></i> Boletos General
+                </button>
+                <button onclick="openTicketModal('Staff')"
+                    class="bg-white border border-zinc-200 text-zinc-600 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 hover:border-zinc-900 hover:text-zinc-900 transition-all shadow-sm">
+                    <i class="fas fa-id-badge mr-2 text-indigo-500"></i> Boletos Staff
+                </button>
+                <button onclick="openTicketModal('Modelos')"
+                    class="bg-white border border-zinc-200 text-zinc-600 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 hover:border-zinc-900 hover:text-zinc-900 transition-all shadow-sm">
+                    <i class="fas fa-female mr-2 text-rose-500"></i> Boletos Modelos
+                </button>
+                <button onclick="openTicketModal('Invitados')"
+                    class="bg-white border border-zinc-200 text-zinc-600 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 hover:border-zinc-900 hover:text-zinc-900 transition-all shadow-sm">
+                    <i class="fas fa-user-friends mr-2 text-emerald-500"></i> Boletos Invitados
                 </button>
                 <button onclick="openRegistrationModal()"
                     class="bg-white border border-zinc-200 text-zinc-600 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 hover:border-zinc-900 hover:text-zinc-900 transition-all shadow-sm">
@@ -279,7 +295,7 @@ if ($res_ciclos) {
                 </button>
                 <button onclick="triggerMonthlyCharges()"
                     class="bg-zinc-900 text-white px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-700 transition-colors shadow-lg shadow-zinc-200">
-                    <i class="fas fa-bolt mr-2 text-amber-400"></i> Generar Cargos del Mes
+                    <i class="fas fa-bolt mr-2 text-amber-400"></i> Generar Cargos
                 </button>
             </div>
         </div>
@@ -580,7 +596,8 @@ if ($res_ciclos) {
                                         <p class="font-bold text-zinc-700"><?php echo htmlspecialchars($hist['banco_receptor']); ?>
                                         </p>
                                         <p class="text-[10px] text-zinc-500 uppercase">
-                                            <?php echo htmlspecialchars($hist['titular_receptor']); ?></p>
+                                            <?php echo htmlspecialchars($hist['titular_receptor']); ?>
+                                        </p>
                                     <?php else: ?>
                                         <span class="text-zinc-300 italic">--</span>
                                     <?php endif; ?>
@@ -627,6 +644,42 @@ if ($res_ciclos) {
                     class="px-3 py-1 bg-white border border-zinc-200 rounded hover:bg-zinc-100 disabled:opacity-50"
                     id="btnNextHist">Siguiente</button>
             </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ==========================================
+     SECCIÓN D: CONFIGURACIÓN DE EVENTOS
+     ========================================== -->
+<div id="view-eventos" class="hidden animate-fade-in-up">
+    <div class="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-zinc-100 bg-zinc-50/50 flex justify-between items-center">
+            <h6 class="text-xs font-bold uppercase tracking-widest text-zinc-500"><i
+                    class="fas fa-calendar-alt mr-2"></i> Gestión de Eventos</h6>
+            <button onclick="openAddEventModal()"
+                class="bg-zinc-900 text-white px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors shadow-lg">
+                <i class="fas fa-plus mr-2"></i> Nuevo Evento
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead class="bg-zinc-900 text-white text-xs uppercase tracking-wider">
+                    <tr>
+                        <th class="px-6 py-4 font-medium w-16 text-center">ID</th>
+                        <th class="px-6 py-4 font-medium">Nombre del Evento</th>
+                        <th class="px-6 py-4 font-medium text-center">Fecha</th>
+                        <th class="px-6 py-4 font-medium text-center">Estado</th>
+                        <th class="px-6 py-4 font-medium text-right">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="eventsListTable" class="divide-y divide-zinc-100 text-sm">
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 text-center text-zinc-400">Cargando eventos...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -930,6 +983,12 @@ if ($res_ciclos) {
             </div>
 
             <div id="cashFields" class="mb-4 text-center">
+                <div class="mb-3 text-left">
+                    <label class="block text-xs font-bold uppercase text-zinc-500 mb-1">Comentarios (Opcional)</label>
+                    <textarea id="payComment"
+                        class="w-full border border-zinc-300 rounded px-3 py-2 text-sm focus:border-zinc-900 outline-none resize-none h-20"
+                        placeholder="Ej. Pago entregado por padre de familia..."></textarea>
+                </div>
                 <p class="text-xs text-zinc-400 bg-zinc-50 p-3 rounded border border-dashed border-zinc-200">
                     <i class="fas fa-print mr-1"></i> Se generará un comprobante de pago del sistema automáticamente.
                 </p>
@@ -1073,7 +1132,7 @@ if ($res_ciclos) {
         <!-- Header -->
         <div class="px-6 py-5 border-b border-zinc-100 bg-zinc-50 flex justify-between items-center">
             <div>
-                <h3 class="font-serif italic text-xl text-zinc-900">Venta de Boletos</h3>
+                <h3 class="font-serif italic text-xl text-zinc-900" id="ticketModalTitle">Venta de Boletos</h3>
                 <p class="text-xs text-zinc-400 mt-1 font-light">Genera cargos por boletos a múltiples alumnos.</p>
             </div>
             <button onclick="document.getElementById('ticketModal').classList.add('hidden')"
@@ -1100,20 +1159,10 @@ if ($res_ciclos) {
             </div>
             <div class="md:col-span-2">
                 <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Evento</label>
-                <div class="flex gap-2">
-                    <select id="ticketEventSelect"
-                        class="flex-1 px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none bg-white">
-                        <option value="">Seleccione un evento...</option>
-                    </select>
-                    <button onclick="createNewEvent()"
-                        class="px-3 py-2 bg-zinc-900 text-white rounded hover:bg-zinc-800 transition-colors"
-                        title="Crear Nuevo Evento">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                    <!-- <button onclick="deactivateEvent()" class="px-3 py-2 bg-white border border-zinc-200 text-zinc-400 rounded hover:text-rose-500 hover:border-rose-500 transition-colors" title="Ocultar Evento">
-                        <i class="fas fa-trash-alt"></i>
-                    </button> -->
-                </div>
+                <select id="ticketEventSelectModal"
+                    class="block w-full px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none bg-white text-ellipsis overflow-hidden">
+                    <option value="">Seleccione un evento...</option>
+                </select>
             </div>
         </div>
 
@@ -1138,57 +1187,114 @@ if ($res_ciclos) {
             </button>
         </div>
 
-        <!-- List -->
-        <div class="flex-1 overflow-y-auto p-0">
-            <table class="w-full text-left text-sm">
-                <thead class="bg-zinc-50 text-zinc-500 sticky top-0 z-10 border-b border-zinc-100">
-                    <tr>
-                        <th class="px-6 py-3 w-10">
-                            <input type="checkbox" onchange="toggleAllTickets(this)"
-                                class="rounded border-zinc-300 text-zinc-900 focus:ring-0">
-                        </th>
-                        <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider">Alumno</th>
-                        <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider text-center">Forma</th>
-                        <th class="px-6 py-3 w-32 font-medium uppercase text-xs tracking-wider text-center">Cantidad
-                        </th>
-                        <th class="px-6 py-3 w-32 font-medium uppercase text-xs tracking-wider text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-zinc-50">
-                    <?php foreach ($alumnos_config as $alum):
-                        $forma = strtolower($alum['forma'] ?? 'presencial');
-                        ?>
-                        <tr class="hover:bg-zinc-50 transition-colors ticket-row"
-                            data-id="<?php echo $alum['alumno_id']; ?>" data-forma="<?php echo $forma; ?>">
-                            <td class="px-6 py-3">
-                                <input type="checkbox"
-                                    class="ticket-check rounded border-zinc-300 text-zinc-900 focus:ring-0"
-                                    onchange="updateRowTotal(this)">
-                            </td>
-                            <td class="px-6 py-3 text-zinc-700 font-medium">
-                                <?php echo htmlspecialchars($alum['nombre']); ?>
-                            </td>
-                            <td class="px-6 py-3 text-center">
-                                <?php if ($forma === 'online'): ?>
-                                    <span
-                                        class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Online</span>
-                                <?php else: ?>
-                                    <span
-                                        class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">Presencial</span>
-                                <?php endif; ?>
-                            </td>
-                            <td class="px-6 py-3 text-center">
-                                <input type="number" value="1" min="1"
-                                    class="ticket-qty w-16 text-center border border-zinc-200 rounded py-1 text-xs focus:border-zinc-900 outline-none"
-                                    oninput="updateRowTotal(this)">
-                            </td>
-                            <td class="px-6 py-3 text-right font-bold text-zinc-900 ticket-row-total text-zinc-300">
-                                $0.00
-                            </td>
+        <!-- Dynamic Content Area -->
+        <div id="ticket-mode-students">
+            <div class="mb-4">
+                <input type="text" id="ticketSearch" placeholder="Buscar alumno..."
+                    class="w-full border border-zinc-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-zinc-500"
+                    onkeyup="filterTicketStudents()">
+            </div>
+
+            <div class="max-h-60 overflow-y-auto border border-zinc-200 rounded text-sm">
+                <table class="w-full text-left">
+                    <thead class="bg-zinc-50 sticky top-0">
+                        <tr>
+                            <th class="p-2 border-b">
+                                <input type="checkbox" onclick="toggleAllTickets(this)">
+                            </th>
+                            <th class="p-2 border-b font-semibold text-zinc-600">Alumno</th>
+                            <th class="p-2 border-b font-semibold text-zinc-600">Referencia</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody id="ticketStudentList">
+                        <!-- Populated by JS -->
+                        <?php foreach ($alumnos_config as $alum):
+                            $forma = strtolower($alum['forma'] ?? 'presencial');
+                            ?>
+                            <tr class="hover:bg-zinc-50 transition-colors ticket-row"
+                                data-id="<?php echo $alum['alumno_id']; ?>" data-forma="<?php echo $forma; ?>">
+                                <td class="px-6 py-3">
+                                    <input type="checkbox"
+                                        class="ticket-check rounded border-zinc-300 text-zinc-900 focus:ring-0"
+                                        value="<?php echo $alum['alumno_id']; ?>" onchange="updateRowTotal(this)">
+                                </td>
+                                <td class="px-6 py-3 text-zinc-700 font-medium">
+                                    <?php echo htmlspecialchars($alum['nombre']); ?>
+                                </td>
+                                <td class="px-6 py-3 text-center">
+                                    <?php if ($forma === 'online'): ?>
+                                        <span
+                                            class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Online</span>
+                                    <?php else: ?>
+                                        <span
+                                            class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">Presencial</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="px-6 py-3 text-center">
+                                    <input type="number" value="1" min="1"
+                                        class="ticket-qty w-16 text-center border border-zinc-200 rounded py-1 text-xs focus:border-zinc-900 outline-none"
+                                        oninput="updateRowTotal(this)">
+                                </td>
+                                <td class="px-6 py-3 text-right font-bold text-zinc-900 ticket-row-total text-zinc-300">
+                                    $0.00
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="ticket-mode-staff" class="hidden">
+            <div class="flex gap-4 mb-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="staffType" value="internal" checked onchange="toggleStaffInput()">
+                    <span class="text-sm">Personal Registrado</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="staffType" value="external" onchange="toggleStaffInput()">
+                    <span class="text-sm">Staff Externo</span>
+                </label>
+            </div>
+
+            <div id="staff-internal-input">
+                <div class="mb-4">
+                    <input type="text" id="staffSearch" placeholder="Buscar staff..."
+                        class="w-full border border-zinc-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-zinc-500"
+                        onkeyup="filterStaffList()">
+                </div>
+                <div class="max-h-60 overflow-y-auto border border-zinc-200 rounded text-sm">
+                    <table class="w-full text-left">
+                        <thead class="bg-zinc-50 sticky top-0">
+                            <tr>
+                                <th class="p-2 border-b w-10">
+                                    <input type="checkbox" onclick="toggleAllStaff(this)">
+                                </th>
+                                <th class="p-2 border-b font-semibold text-zinc-600">Nombre</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffListTable">
+                            <tr>
+                                <td colspan="2" class="p-4 text-center text-zinc-400">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="staff-external-input" class="hidden">
+                <label class="block text-xs font-bold uppercase text-zinc-500 mb-1">Nombre del Staff Externo</label>
+                <input type="text" id="staffExternalName"
+                    class="w-full border border-zinc-300 rounded px-3 py-2 text-sm" placeholder="Ej. Juan Perez">
+            </div>
+        </div>
+
+        <div id="ticket-mode-model" class="hidden">
+            <div class="mb-4">
+                <label class="block text-xs font-bold uppercase text-zinc-500 mb-1">Nombre de la Modelo</label>
+                <input type="text" id="modelName" class="w-full border border-zinc-300 rounded px-3 py-2 text-sm"
+                    placeholder="Ej. Modelo Ana">
+            </div>
         </div>
 
         <!-- Footer -->
@@ -1328,7 +1434,7 @@ if ($res_ciclos) {
         <!-- Footer -->
         <div class="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
             <div class="text-xs text-zinc-400">
-                <span id="regCount">0</span> alumnos seleccionados
+                <span id="regSelectedCount">0</span> alumnos seleccionados
             </div>
             <div class="flex gap-3">
                 <button onclick="document.getElementById('registrationModal').classList.add('hidden')"
@@ -1342,39 +1448,59 @@ if ($res_ciclos) {
     </div>
 </div>
 
-<script>
-    function switchTab(tabId) {
-        // Hide all views
-        ['view-config', 'view-cobranza', 'view-historico'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.classList.add('hidden');
-        });
 
-        // Reset all tabs
-        ['tab-config', 'tab-cobranza', 'tab-historico'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.classList.remove('bg-white', 'text-zinc-900', 'shadow-sm');
-                el.classList.add('text-zinc-500');
-            }
+<!-- MODAL AGREGAR EVENTO (Simple input) -->
+<div id="addEventModal"
+    class="fixed inset-0 z-[70] hidden bg-zinc-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up">
+        <div class="px-6 py-4 border-b border-zinc-100 bg-zinc-50">
+            <h3 class="font-serif italic text-lg text-zinc-900">Nuevo Evento</h3>
+        </div>
+        <div class="p-6">
+            <label class="block text-xs font-bold uppercase text-zinc-500 mb-1">Nombre</label>
+            <input type="text" id="newEventName" class="w-full border border-zinc-300 rounded px-3 py-2 mb-4"
+                placeholder="Ej. Gala de Invierno">
+            <div class="flex gap-2 justify-end">
+                <button onclick="document.getElementById('addEventModal').classList.add('hidden')"
+                    class="px-4 py-2 text-xs font-bold uppercase text-zinc-500">Cancelar</button>
+                <button onclick="submitNewEvent()"
+                    class="px-4 py-2 bg-zinc-900 text-white rounded text-xs font-bold uppercase">Crear</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tab) {
+        // Hide all views
+        document.getElementById('view-config').classList.add('hidden');
+        document.getElementById('view-cobranza').classList.add('hidden');
+        document.getElementById('view-historico').classList.add('hidden');
+        document.getElementById('view-eventos').classList.add('hidden');
+
+        // Reset tabs
+        ['config', 'cobranza', 'historico', 'eventos'].forEach(t => {
+            const btn = document.getElementById(`tab-${t}`);
+            btn.className = "px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all text-zinc-500 hover:text-zinc-900";
         });
 
         // Show active view
-        const view = document.getElementById('view-' + tabId);
-        if (view) view.classList.remove('hidden');
+        document.getElementById(`view-${tab}`).classList.remove('hidden');
 
-        // Highlight active tab
-        const tab = document.getElementById('tab-' + tabId);
-        if (tab) {
-            tab.classList.remove('text-zinc-500');
-            tab.classList.add('bg-white', 'text-zinc-900', 'shadow-sm');
+        // Active tab style
+        const activeBtn = document.getElementById(`tab-${tab}`);
+        activeBtn.className = "px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all bg-white text-zinc-900 shadow-sm";
+
+        if (tab === 'eventos') {
+            loadEventsTable();
         }
 
         // Update URL
         const url = new URL(window.location);
-        url.searchParams.set('tab', tabId);
+        url.searchParams.set('tab', tab);
         window.history.pushState({}, '', url);
     }
+
 
     function openAdjustmentModal(id, name, original, surcharge, scholarship) {
         document.getElementById('modalChargeId').value = id;
@@ -1586,9 +1712,10 @@ if ($res_ciclos) {
         const method = document.getElementById('payMethod').value;
         const reference = document.getElementById('payReference').value;
         const amount = document.getElementById('payAmountInput').value;
+        const comment = document.getElementById('payComment').value;
 
-        if (parseFloat(amount) <= 0) {
-            alert('Por favor verifica el monto a pagar.');
+        if (parseFloat(amount) < 0) {
+            alert('Por favor verifica el monto a pagar (no puede ser negativo).');
             return;
         }
 
@@ -1604,7 +1731,9 @@ if ($res_ciclos) {
         formData.append('charge_id', id);
         formData.append('metodo', method);
         formData.append('referencia', reference);
+        formData.append('referencia', reference);
         formData.append('monto', amount);
+        formData.append('nota', comment);
 
         fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
             .then(res => res.json())
@@ -1739,14 +1868,130 @@ if ($res_ciclos) {
     }
 
     // --- TICKET MODAL LOGIC ---
-    function openTicketModal() {
-        document.getElementById('ticketModal').classList.remove('hidden');
-        // Reset checks or keep them? Resetting for safety.
-        document.querySelectorAll('.ticket-check').forEach(c => {
-            c.checked = false;
-            updateRowTotal(c);
+
+    function filterTicketStudents() {
+        const term = document.getElementById('ticketSearch').value.toLowerCase();
+        const rows = document.querySelectorAll('#ticketStudentList .ticket-row');
+        rows.forEach(row => {
+            const name = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+            if (name.includes(term)) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
         });
-        document.getElementById('ticketCount').innerText = '0';
+    }
+
+    let currentTicketType = 'General';
+
+    function openTicketModal(type = 'General') {
+        currentTicketType = type;
+        const titleMap = {
+            'General': 'Venta de Boletos',
+            'Staff': 'Boletos Staff',
+            'Modelos': 'Boletos Modelos',
+            'Invitados': 'Boletos Invitados'
+        };
+        // If type is Invitados OR Modelos, it's linked to students (logic stated by user: "related to student")
+        // So Invitados and Modelos use Student Mode.
+        const isStudentMode = (type === 'General' || type === 'Invitados' || type === 'Modelos');
+        const isStaffMode = (type === 'Staff');
+        // const isModelMode = (type === 'Modelos'); // Now generic student mode
+
+        document.getElementById('ticketModalTitle').textContent = titleMap[type] || 'Venta de Boletos';
+        document.getElementById('ticketModal').classList.remove('hidden');
+
+        // Toggle UI Sections
+        document.getElementById('ticket-mode-students').classList.toggle('hidden', !isStudentMode);
+        document.getElementById('ticket-mode-staff').classList.toggle('hidden', !isStaffMode);
+        document.getElementById('ticket-mode-model').classList.add('hidden'); // Always hide old model input
+
+        // Reset Inputs
+        if (isStudentMode) {
+            document.querySelectorAll('.ticket-check').forEach(c => c.checked = false);
+            // updateRowTotal(document.querySelector('.ticket-check')); // Reset totals - this might fail if no checks
+            document.querySelectorAll('.ticket-row-total').forEach(el => {
+                el.innerText = '$0.00';
+                el.classList.add('text-zinc-300');
+                el.classList.remove('text-zinc-900');
+            });
+            document.querySelectorAll('.ticket-qty').forEach(el => el.value = '1');
+            updateTicketCount();
+        }
+
+        if (isStaffMode) {
+            loadStaffList();
+            document.getElementById('staffExternalName').value = '';
+            document.querySelector('input[name="staffType"][value="internal"]').checked = true;
+            toggleStaffInput();
+        }
+
+        loadTicketEvents();
+    }
+
+    function toggleStaffInput() {
+        const type = document.querySelector('input[name="staffType"]:checked').value;
+        document.getElementById('staff-internal-input').classList.toggle('hidden', type !== 'internal');
+        document.getElementById('staff-external-input').classList.toggle('hidden', type !== 'external');
+    }
+
+    function loadStaffList() {
+        const tbody = document.getElementById('staffListTable');
+        tbody.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-zinc-400">Cargando...</td></tr>';
+
+        fetch('../../back/admin_actions_finanzas.php?action=fetch_staff')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    let html = '';
+                    data.data.forEach(u => {
+                        html += `
+                        <tr class="hover:bg-zinc-50 transition-colors staff-row" data-search="${u.nombre_completo.toLowerCase()}">
+                            <td class="px-6 py-3">
+                                <input type="checkbox" class="staff-check rounded border-zinc-300 text-zinc-900 focus:ring-0" 
+                                    value="${u.id}" onchange="updateStaffCount()">
+                            </td>
+                            <td class="px-6 py-3 text-zinc-700 font-medium">
+                                ${u.nombre_completo}
+                            </td>
+                        </tr>`;
+                    });
+                    tbody.innerHTML = html;
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-rose-500">Error al cargar staff</td></tr>';
+                }
+            })
+            .catch(err => {
+                console.error("Fetch staff error:", err);
+                tbody.innerHTML = '<tr><td colspan="2" class="p-4 text-center text-rose-500">Error de conexión</td></tr>';
+            });
+    }
+
+    function toggleAllStaff(source) {
+        document.querySelectorAll('.staff-check').forEach(cb => {
+            // Only toggle visible rows
+            if (!cb.closest('tr').classList.contains('hidden')) {
+                cb.checked = source.checked;
+            }
+        });
+        updateStaffCount();
+    }
+
+    function filterStaffList() {
+        const term = document.getElementById('staffSearch').value.toLowerCase();
+        document.querySelectorAll('.staff-row').forEach(row => {
+            const name = row.dataset.search || '';
+            if (name.includes(term)) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+    }
+
+    function updateStaffCount() {
+        // Optional: Update a counter if needed, or just let submit handle it.
+        // For now, no specific "Staff Count" display requested, but good practice.
     }
 
     function toggleAllTickets(source) {
@@ -1821,31 +2066,32 @@ if ($res_ciclos) {
         });
     });
 
-    function openTicketModal() {
-        document.getElementById('ticketModal').classList.remove('hidden');
-        document.querySelectorAll('.ticket-check').forEach(c => c.checked = false);
-        updateRowTotal(document.querySelector('.ticket-check')); // Reset totals
-        updateTicketCount();
-        loadTicketEvents();
-    }
 
     function loadTicketEvents() {
-        const select = document.getElementById('ticketEventSelect');
+        const select = document.getElementById('ticketEventSelectModal');
         const currentVal = select.value;
         select.innerHTML = '<option value="">Cargando...</option>';
 
-        fetch('../../back/admin_actions_finanzas.php?action=get_events')
+        const formData = new FormData();
+        formData.append('action', 'get_events');
+        formData.append('mode', 'active');
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
                     let html = '<option value="">Seleccione un evento...</option>';
-                    data.data.forEach(ev => {
-                        const sel = ev.id == currentVal ? 'selected' : '';
-                        html += `<option value="${ev.id}" ${sel}>${ev.nombre}</option>`;
-                    });
+                    if (data.data.length === 0) {
+                        html = '<option value="">No hay eventos activos</option>';
+                    } else {
+                        data.data.forEach(ev => {
+                            const sel = ev.id == currentVal ? 'selected' : '';
+                            html += `<option value="${ev.id}" ${sel}>${ev.nombre}</option>`;
+                        });
+                    }
                     select.innerHTML = html;
                 } else {
-                    select.innerHTML = '<option value="">Error al cargar</option>';
+                    select.innerHTML = '<option value="">Error al cargar: ' + data.message + '</option>';
                     console.error(data.message);
                 }
             })
@@ -1855,79 +2101,265 @@ if ($res_ciclos) {
             });
     }
 
-    function createNewEvent() {
-        const nombre = prompt("Nombre del nuevo evento:");
-        if (!nombre || !nombre.trim()) return;
+    // --- EVENT MANAGER LOGIC ---
+
+    // --- NEW EVENT MANAGEMENT TAB LOGIC ---
+
+    function loadEventsTable() {
+        const tbody = document.getElementById('eventsListTable'); // Ensure ID matches HTML in view-eventos
+        if (!tbody) {
+            // If tbody is missing (maybe I need to check if I added the HTML properly too), try to find it or fail gracefully
+            console.error("eventsListTable not found in DOM");
+            return;
+        }
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-zinc-400">Cargando eventos...</td></tr>';
+
+        const formData = new FormData();
+        formData.append('action', 'get_events');
+        formData.append('mode', 'all');
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    renderEventsTable(data.data);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-rose-500">Error al cargar eventos: ' + (data.message || 'Desconocido') + '</td></tr>';
+                }
+            })
+            .catch(err => {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-rose-500">Error de conexión</td></tr>';
+            });
+    }
+
+    function renderEventsTable(events) {
+        const tbody = document.getElementById('eventsListTable');
+        if (events.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-zinc-400">No hay eventos registrados.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        events.forEach(ev => {
+            const isActive = ev.activo == 1; // Explicit check
+            const rowClass = isActive ? 'hover:bg-zinc-50' : 'bg-zinc-50 opacity-75 grayscale';
+            const statusBadge = isActive
+                ? '<span class="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase">Activo</span>'
+                : '<span class="px-2 py-1 rounded-full bg-zinc-200 text-zinc-500 text-[10px] font-bold uppercase">Cerrado</span>';
+
+            const closeBtn = isActive
+                ? `<button onclick="closeEvent(${ev.id})" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:border-zinc-900 hover:text-zinc-900 shadow-sm transition-all" title="Cerrar Evento (Terminar)"><i class="fas fa-flag-checkered"></i></button>`
+                : `<button disabled class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-300 cursor-not-allowed"><i class="fas fa-flag-checkered"></i></button>`;
+
+            html += `
+                <tr class="border-b border-zinc-100 last:border-0 transition-colors ${rowClass}">
+                    <td class="px-6 py-4 text-center text-xs text-zinc-400 font-mono">${ev.id}</td>
+                    <td class="px-6 py-4 font-medium text-zinc-800">
+                        <input type="text" value="${ev.nombre}" 
+                            class="bg-transparent border-none focus:bg-white focus:ring-1 focus:ring-zinc-200 rounded px-2 py-1 w-full outline-none transition-all ${isActive ? 'cursor-text' : 'cursor-not-allowed'}"
+                            onchange="updateEventName(${ev.id}, this)"
+                            ${!isActive ? 'disabled' : ''}>
+                    </td>
+                    <td class="px-6 py-4 text-center text-xs text-zinc-500">
+                        ${ev.fecha}
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        ${statusBadge}
+                    </td>
+                    <td class="px-6 py-4 text-right flex justify-end gap-2">
+                        ${closeBtn}
+                        <button onclick="deleteEvent(${ev.id})" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:border-rose-500 hover:text-rose-500 shadow-sm transition-all" title="Eliminar Evento">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }
+
+    function submitNewEvent() {
+        const nameInput = document.getElementById('newEventName');
+        const nombre = nameInput.value.trim();
+        if (!nombre) return alert('Ingresa un nombre para el evento');
 
         const formData = new FormData();
         formData.append('action', 'add_event');
-        formData.append('nombre', nombre.trim());
+        formData.append('nombre', nombre);
         formData.append('fecha', new Date().toISOString().split('T')[0]);
 
         fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    alert('Evento creado: ' + data.data.nombre);
-                    loadTicketEvents(); // Reload list
-                    // Auto select? loadTicketEvents is async, so tricky unless we pass callback or promise. 
-                    // For now simple reload is fine, user can select.
+                    nameInput.value = ''; // Reset
+                    document.getElementById('addEventModal').classList.add('hidden');
+                    loadEventsTable();
+                    alert('Evento creado exitosamente');
                 } else {
                     alert('Error: ' + data.message);
                 }
             });
     }
 
+    function updateEventName(id, input) {
+        const newName = input.value.trim();
+        if (!newName) return;
+
+        const formData = new FormData();
+        formData.append('action', 'edit_event');
+        formData.append('id', id);
+        formData.append('nombre', newName);
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    input.classList.add('text-emerald-600');
+                    setTimeout(() => input.classList.remove('text-emerald-600'), 1000);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+    }
+
+    function closeEvent(id) {
+        if (!confirm('¿Estás seguro de CERRAR este evento? \n\nUna vez cerrado, no aparecerá en las opciones de venta de boletos. Esta acción no elimina los registros de venta existentes.')) return;
+
+        const formData = new FormData();
+        formData.append('action', 'close_event');
+        formData.append('id', id);
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadEventsTable();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+    }
+
+    function deleteEvent(id) {
+        if (!confirm('¿Eliminar evento permanentemente? \n\nSolo se pueden eliminar eventos sin boletos vendidos.')) return;
+
+        const formData = new FormData();
+        formData.append('action', 'delete_event');
+        formData.append('id', id);
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadEventsTable();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+    }
+
+    function openAddEventModal() {
+        document.getElementById('addEventModal').classList.remove('hidden');
+        document.getElementById('newEventName').focus();
+    }
+
+
     function submitTicketSales() {
-        const eventId = document.getElementById('ticketEventSelect').value;
-        const select = document.getElementById('ticketEventSelect');
+        const eventId = document.getElementById('ticketEventSelectModal').value;
+        const select = document.getElementById('ticketEventSelectModal');
         const eventName = select.options[select.selectedIndex]?.text || 'Evento';
         const price = parseFloat(document.getElementById('ticketPrice').value) || 0;
+        const globalQty = parseInt(document.getElementById('ticketGlobalQty').value) || 1;
 
         if (!eventId) {
-            alert('Por favor seleccione un evento.');
+            alert('Seleccione un evento.');
+            return;
+        }
+        const minPrice = (currentTicketType === 'Staff') ? 0 : 0.01;
+        if (price < minPrice) {
+            alert('Especifique un precio válido.');
             return;
         }
 
-        if (price <= 0) {
-            alert('Revise el costo unitario.');
-            return;
+        let salesData = [];
+        let conceptPrefix = "Boletos: " + eventName;
+        if (currentTicketType !== 'General') {
+            conceptPrefix = currentTicketType + ": " + eventName;
         }
 
-        const concept = "Boletos: " + eventName;
-
-        const selected = [];
-        document.querySelectorAll('.ticket-check:checked').forEach(cb => {
-            const row = cb.closest('tr');
-            selected.push({
-                student_id: row.dataset.id,
-                quantity: row.querySelector('.ticket-qty').value,
-                price: price
+        if (currentTicketType === 'General' || currentTicketType === 'Invitados' || currentTicketType === 'Modelos') {
+            // Student/Guest/Model Mode (Multiple Selection)
+            const checks = document.querySelectorAll('.ticket-check:checked');
+            if (checks.length === 0) {
+                alert('Seleccione al menos un alumno.');
+                return;
+            }
+            checks.forEach(chk => {
+                const row = chk.closest('tr');
+                const qty = parseInt(row.querySelector('.ticket-qty').value) || 1;
+                salesData.push({
+                    student_id: chk.value,
+                    quantity: qty,
+                    price: price
+                });
             });
-        });
 
-        if (selected.length === 0) {
-            alert('Seleccione al menos un alumno.');
-            return;
+        } else if (currentTicketType === 'Staff') {
+            const staffType = document.querySelector('input[name="staffType"]:checked').value;
+            const qty = globalQty; // Use global quantity for staff/model
+
+            if (staffType === 'internal') {
+                const checks = document.querySelectorAll('.staff-check:checked');
+                if (checks.length === 0) {
+                    alert('Seleccione al menos un miembro del Staff');
+                    return;
+                }
+                checks.forEach(chk => {
+                    salesData.push({
+                        student_id: chk.value,
+                        quantity: qty,
+                        price: price
+                    });
+                });
+            } else {
+                // External Staff
+                const name = document.getElementById('staffExternalName').value.trim();
+                if (!name) { alert('Ingrese el nombre del Staff Externo'); return; }
+                salesData.push({
+                    student_id: 0, // 0 for external
+                    external_name: name,
+                    quantity: qty,
+                    price: price
+                });
+            }
         }
 
-        if (!confirm(`¿Generar cargos de boletos para ${selected.length} alumnos?`)) return;
+        if (salesData.length === 0) return;
+
+        if (!confirm(`¿Confirmar generación de ${salesData.length} cargo(s)?`)) return;
 
         const formData = new FormData();
         formData.append('action', 'generate_ticket_charges');
-        formData.append('concept', concept);
+        formData.append('data', JSON.stringify(salesData));
+        formData.append('concept', conceptPrefix);
         formData.append('evento_id', eventId);
-        formData.append('data', JSON.stringify(selected));
 
-        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
-            .then(res => res.json())
+        fetch('../../back/admin_actions_finanzas.php?action=generate_ticket_charges', { method: 'POST', body: formData })
+            .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    alert(data.message);
+                    alert('Cargos generados exitosamente.');
+                    document.getElementById('ticketModal').classList.add('hidden');
+                    // Reload to show new charges
                     window.location.href = window.location.pathname + "?page=finanzas&tab=cobranza";
                 } else {
                     alert('Error: ' + data.message);
                 }
+            })
+            .catch(err => {
+                console.error("Error generating ticket charges:", err);
+                alert("Error al generar cargos de boletos. Consulte la consola para más detalles.");
             });
     }
 
@@ -2468,10 +2900,14 @@ if ($res_ciclos) {
     // LISTENER FOR TAB PARAM
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
-        const tab = urlParams.get('tab');
-        if (tab === 'cobranza') {
-            switchTab('cobranza');
+        let tab = urlParams.get('tab');
+        const validTabs = ['config', 'cobranza', 'historico', 'eventos'];
+
+        if (!tab || !validTabs.includes(tab)) {
+            tab = 'config';
         }
+
+        switchTab(tab);
     });
 
 </script>
