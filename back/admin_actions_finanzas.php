@@ -122,7 +122,7 @@ if ($action === 'fetch_config') {
     $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $mode = $_POST['mode'] ?? 'active'; // active, history, all
 
-    $sql = "SELECT b.*, e.nombre as evento, u.nombre_completo as alumno, u.perfil_id, e.activo as evento_activo, c.concepto as cargo_concepto
+    $sql = "SELECT b.*, e.nombre as evento, u.nombre_completo as alumno, u.curp, u.perfil_id, e.activo as evento_activo, c.concepto as cargo_concepto
             FROM finanzas_boletos b 
             JOIN finanzas_eventos e ON b.evento_id = e.id 
             JOIN Usuarios u ON b.alumno_id = u.id
@@ -157,10 +157,23 @@ if ($action === 'fetch_config') {
             // Let's check migration file content.
             // Assuming it exists or we use created_at.
             $row['fecha_emision'] = isset($row['fecha_emision']) ? $row['fecha_emision'] : '-';
+
+            // Fix for External Staff: Extract proper name from concept
+            // Concept format: "Boletos Staff (Name) (xQty)"
+            if ($row['curp'] === 'EXTERNO0000000000') {
+                if (preg_match('/\((.*?)\)/', $row['cargo_concepto'], $matches)) {
+                    // Check if match is not a quantity like (x2)
+                    if (!preg_match('/^x\d+$/', $matches[1])) {
+                        $row['alumno'] = $matches[1];
+                    }
+                }
+            }
+
             $data[] = $row;
         }
     }
     jsonResponse(true, 'Tickets loaded', $data);
+
 
 } elseif ($action === 'toggle_ticket_status') {
     $ticket_id = $_POST['ticket_id'] ?? 0;
@@ -189,6 +202,23 @@ if ($action === 'fetch_config') {
         }
     } else {
         jsonResponse(false, 'Ticket no encontrado');
+    }
+
+} elseif ($action === 'update_ticket_seat') {
+    $ticket_id = $_POST['ticket_id'] ?? 0;
+    $new_seat = isset($_POST['new_seat']) ? intval($_POST['new_seat']) : 0;
+
+    if (!$ticket_id)
+        jsonResponse(false, 'ID Ticket requerido');
+
+    // Update folio_asiento
+    $stmt = $conn->prepare("UPDATE finanzas_boletos SET folio_asiento = ? WHERE id = ?");
+    $stmt->bind_param("ii", $new_seat, $ticket_id);
+
+    if ($stmt->execute()) {
+        jsonResponse(true, 'Asiento actualizado correctamente');
+    } else {
+        jsonResponse(false, 'Error al actualizar asiento: ' . $conn->error);
     }
 
 
@@ -393,6 +423,20 @@ if ($action === 'fetch_config') {
     $q_ext = $conn->query("SELECT id FROM Usuarios WHERE curp = 'EXTERNO0000000000' LIMIT 1");
     if ($q_ext && $row = $q_ext->fetch_assoc()) {
         $id_externo = $row['id'];
+    } else {
+        // Auto-create generic user for external charges
+        // Corrected: Removed email column
+        $stmt_gen = $conn->prepare("INSERT INTO Usuarios (nombre_completo, curp, perfil_id, estado, password_hash) VALUES (?, ?, ?, ?, ?)");
+        $g_name = "Staff Externo / Ventanilla";
+        $g_curp = "EXTERNO0000000000";
+        $g_pid = 3; // Generic Profile
+        $g_status = 'activo';
+        $g_pass = '$2y$10$GenericHashForSecurity000000'; // Dummy hash
+
+        $stmt_gen->bind_param("ssiss", $g_name, $g_curp, $g_pid, $g_status, $g_pass);
+        if ($stmt_gen->execute()) {
+            $id_externo = $stmt_gen->insert_id;
+        }
     }
 
     $count_success = 0;

@@ -92,7 +92,8 @@ if (session_status() == PHP_SESSION_NONE) {
                     </label>
                     <div class="absolute right-0 top-3">
                         <a href="register.php"
-                            class="text-[10px] uppercase tracking-widest text-gray-400 hover:text-black transition-colors">¿Olvidaste?</a>
+                            class="text-[10px] uppercase tracking-widest text-gray-400 hover:text-black transition-colors">¿Olvidaste?
+                            O Registrate</a>
                     </div>
                 </div>
 
@@ -112,9 +113,9 @@ if (session_status() == PHP_SESSION_NONE) {
             </div>
 
             <div class="mt-4">
-                <a href="version1/index.php" 
-                   class="block w-full py-4 border border-zinc-200 text-gray-400 text-xs uppercase tracking-[0.2em] hover:border-zinc-950 hover:text-zinc-950 transition-colors duration-500 font-medium text-center">
-                   Ir a Versión 1
+                <a href="version1/index.php"
+                    class="block w-full py-4 border border-zinc-200 text-gray-400 text-xs uppercase tracking-[0.2em] hover:border-zinc-950 hover:text-zinc-950 transition-colors duration-500 font-medium text-center">
+                    Ir a Versión 1
                 </a>
             </div>
 

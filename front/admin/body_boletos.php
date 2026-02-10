@@ -249,18 +249,12 @@ if ($res_hist) {
             return;
         }
 
-        let html = '';
+        // 1. Pre-process to determine Type and Group Guests
+        let guestGroups = {}; // { event_id_student_id: [ticket1, ticket2, ...] }
+
         tickets.forEach(t => {
-            // Status Badge
-            let status = 'Emitido'; // Default assumption
-            let badgeClass = 'bg-emerald-100 text-emerald-700';
-
-            // Usage Status
-            let uso = t.estado_uso || 'Disponible';
-            let isHistory = currentMode === 'history';
-
-            // Infer Type based on Profile and Concept
-            let tipo = 'Staff'; // Default fallback
+            // Determine Type Logic
+            let tipo = 'Staff';
             let concepto = t.cargo_concepto || '';
             let perfil = parseInt(t.perfil_id) || 0;
 
@@ -268,37 +262,96 @@ if ($res_hist) {
                 tipo = 'Invitado';
             } else if (concepto.includes('Modelos')) {
                 tipo = 'Modelo';
+            } else if (concepto.includes('Staff')) {
+                tipo = 'Staff';
             } else {
-                // User-based Logic
                 if (perfil === 1) tipo = 'Administrativo';
-                else if (perfil === 2) tipo = 'Alumno';
-                else if (perfil === 3) tipo = 'Docente';
-                else if (perfil === 4) tipo = 'Staff'; // Assuming 4 is Staff, or others are Staff
+                else if (perfil === 2) tipo = 'Docente';
+                else if (perfil === 3) tipo = 'Alumno';
+                else if (perfil === 4) tipo = 'Staff';
                 else {
-                    // Fallback to concept if profile logic fails or external
-                    if (concepto.includes('Staff')) tipo = 'Staff';
-                    else tipo = 'Generico';
+                    tipo = 'Generico';
                 }
             }
+            t._computedType = tipo;
+
+            // Group Guests for counting
+            if (tipo === 'Invitado' || tipo === 'Modelo') {
+                const key = `${t.evento_id}_${t.alumno_id}_${tipo}`; // Include type in key to separate guests from models if mixed (though unlikely)
+                if (!guestGroups[key]) guestGroups[key] = [];
+                guestGroups[key].push(t);
+            }
+        });
+
+        // Sort Guest Groups by ID to assign sequential numbers
+        for (const key in guestGroups) {
+            guestGroups[key].sort((a, b) => a.id - b.id);
+            guestGroups[key].forEach((t, index) => {
+                t._guestIndex = index + 1;
+                t._guestTotal = guestGroups[key].length;
+            });
+        }
+
+        // Custom Sort: Type ASC, then Folio ASC
+        tickets.sort((a, b) => {
+            const typeA = a._computedType.toUpperCase();
+            const typeB = b._computedType.toUpperCase();
+            if (typeA < typeB) return -1;
+            if (typeA > typeB) return 1;
+            return (a.folio_asiento || 0) - (b.folio_asiento || 0);
+        });
+
+        // Type Colors
+        const typeColors = {
+            'ALUMNO': 'bg-blue-100 text-blue-800 border-blue-200',
+            'INVITADO': 'bg-purple-100 text-purple-800 border-purple-200',
+            'MODELO': 'bg-pink-100 text-pink-800 border-pink-200',
+            'STAFF': 'bg-zinc-100 text-zinc-800 border-zinc-200',
+            'DOCENTE': 'bg-amber-100 text-amber-800 border-amber-200',
+            'ADMINISTRATIVO': 'bg-teal-100 text-teal-800 border-teal-200',
+            'GENERICO': 'bg-gray-100 text-gray-800 border-gray-200'
+        };
+
+        let html = '';
+        tickets.forEach(t => {
+            let status = 'Emitido';
+            let badgeClass = 'bg-emerald-100 text-emerald-700';
+            let uso = t.estado_uso || 'Disponible';
+            let isHistory = currentMode === 'history';
+            let tipo = t._computedType;
+            let typeBadgeClass = typeColors[tipo.toUpperCase()] || typeColors['GENERICO'];
 
             // Format Folio
             let folioDisplay = t.folio_asiento > 0 ? '#' + String(t.folio_asiento).padStart(4, '0') : '-';
 
+            // Guest Label Info
+            let guestLabel = '';
+            if ((tipo === 'Invitado' || tipo === 'Modelo') && t._guestTotal > 0) {
+                guestLabel = `${tipo} ${t._guestIndex} de ${t._guestTotal}`;
+            }
+
             let btnColor = (uso === 'Disponible') ? 'bg-zinc-900 text-white hover:bg-zinc-700' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300';
             let btnIcon = (uso === 'Disponible') ? 'fa-check' : 'fa-undo';
-
-            if (isHistory) {
-                btnColor = 'bg-zinc-100 text-zinc-400 cursor-not-allowed';
-            }
+            if (isHistory) btnColor = 'bg-zinc-100 text-zinc-400 cursor-not-allowed';
 
             let actionBtn = isHistory
                 ? `<span class="px-3 py-1 text-[10px] uppercase font-bold text-zinc-400 flex items-center gap-1"><i class="fas ${btnIcon}"></i> ${uso}</span>`
                 : `<button onclick="toggleStatus(${t.id})" class="px-3 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${btnColor} transition-colors flex items-center gap-1"><i class="fas ${btnIcon}"></i> ${uso}</button>`;
 
             html += `<tr class="hover:bg-zinc-50 transition-colors ticket-row" data-search="${t.alumno.toLowerCase()} ${t.folio_asiento} ${tipo.toLowerCase()}" data-tipo="${tipo}">
-            <td class="px-6 py-4 font-mono font-bold text-lg text-zinc-900">${folioDisplay}</td>
+            <td class="px-6 py-4 font-mono font-bold text-lg text-zinc-900">
+                <div class="flex items-center gap-2">
+                    <span>${folioDisplay}</span>
+                    <button onclick="editSeat('${t.id}', '${t.folio_asiento}')" class="text-zinc-400 hover:text-zinc-900 text-sm transition-colors" title="Editar Asiento">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                </div>
+            </td>
             <td class="px-6 py-4">
-                <span class="px-2 py-1 rounded bg-zinc-100 border border-zinc-200 text-zinc-600 text-[10px] font-bold uppercase tracking-wider">${tipo}</span>
+                <div class="flex flex-col items-start">
+                    <span class="px-2 py-1 rounded ${typeBadgeClass} border text-[10px] font-bold uppercase tracking-wider mb-1">${tipo}</span>
+                    ${guestLabel ? `<span class="text-[10px] text-zinc-400 font-medium">${guestLabel}</span>` : ''}
+                </div>
             </td>
             <td class="px-6 py-4 text-zinc-600 font-medium">${t.evento}</td>
             <td class="px-6 py-4 font-bold text-zinc-800">${t.alumno}</td>
@@ -311,14 +364,20 @@ if ($res_hist) {
             <td class="px-6 py-4 text-right text-zinc-500 font-mono text-xs">
                 ${t.fecha_emision || '--'}
                 <div class="flex justify-end gap-2 mt-2">
-                    <button onclick="viewQR('${t.id}', '${t.alumno}', '${t.folio_asiento}')" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-900 transition-all shadow-sm flex items-center justify-center" title="Ver QR de Acceso">
-                        <i class="fas fa-qrcode"></i>
-                    </button>
-                    <button onclick="shareTicket('${t.id}', '${t.evento}', '${t.alumno}')" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-blue-600 hover:border-blue-600 transition-all shadow-sm flex items-center justify-center" title="Compartir Boleto">
-                        <i class="fas fa-share-alt"></i>
-                    </button>
+                <button onclick="viewQR('${t.id}', '${t.alumno}', '${t.folio_asiento}', '${tipo}', '${guestLabel}')"
+                    class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-900 transition-all shadow-sm flex items-center justify-center"
+                    title="Ver QR de Acceso">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button onclick="downloadTicket('${t.id}', '${t.alumno}', '${t.folio_asiento}', '${tipo}', '${guestLabel}')"
+                    class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-emerald-600 hover:border-emerald-600 transition-all shadow-sm flex items-center justify-center"
+                    title="Descargar Boleto">
+                    <i class="fas fa-download"></i>
+                </button>
                     ${!isHistory ? `
-                    <button onclick="deleteTicket('${t.id}')" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-rose-600 hover:border-rose-600 transition-all shadow-sm flex items-center justify-center" title="Eliminar Boleto">
+                    <button onclick="deleteTicket('${t.id}')"
+                        class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-rose-600 hover:border-rose-600 transition-all shadow-sm flex items-center justify-center"
+                        title="Eliminar Boleto">
                         <i class="fas fa-trash-alt"></i>
                     </button>` : ''}
                 </div>
@@ -326,6 +385,43 @@ if ($res_hist) {
             </tr>`;
         });
         tbody.innerHTML = html;
+
+        // Ensure script is loaded only once
+        if (!document.querySelector('script[src*="html2canvas"]')) {
+            const script = document.createElement('script');
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+            document.head.appendChild(script);
+        }
+    }
+
+    function editSeat(id, currentSeat) {
+        let newSeat = prompt("Ingresa el nuevo número de asiento:", currentSeat > 0 ? currentSeat : "");
+        if (newSeat === null) return; // Cancelled
+
+        // If empty or 0, it means unassigned (which we send as 0)
+        if (newSeat.trim() === '') newSeat = 0;
+        else newSeat = parseInt(newSeat);
+
+        if (isNaN(newSeat)) {
+            alert("Por favor ingresa un número válido.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('action', 'update_ticket_seat');
+        formData.append('ticket_id', id);
+        formData.append('new_seat', newSeat);
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadTickets();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => alert('Error de conexión'));
     }
 
     function deleteTicket(id) {
@@ -367,9 +463,10 @@ if ($res_hist) {
         });
     }
 
-    function viewQR(id, name, folio) {
-        // Mock QR View
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TICKET:${id}`;
+    function viewQR(id, name, folio, tipo, guestLabel) {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=TICKET:${id}`;
+        const folioText = folio > 0 ? '#' + String(folio).padStart(4, '0') : '--';
+        const typeLabel = tipo.toUpperCase();
 
         let modal = document.getElementById('qrModal');
         if (!modal) {
@@ -377,34 +474,129 @@ if ($res_hist) {
             modal.id = 'qrModal';
             modal.className = 'fixed inset-0 z-[70] bg-zinc-900/80 backdrop-blur-sm flex items-center justify-center hidden';
             modal.innerHTML = `
-                <div class="bg-white p-8 rounded-xl shadow-2xl flex flex-col items-center animate-fade-in-up max-w-sm w-full mx-4">
-                    <h3 class="font-serif italic text-2xl mb-2">Acceso al Evento</h3>
-                    <p class="text-xs text-zinc-500 mb-6 text-center" id="qrSubtitle">...</p>
-                    <div class="bg-white p-2 border border-zinc-100 rounded-lg shadow-inner mb-6">
-                        <img id="qrImage" src="" class="w-48 h-48 object-contain">
+                <div class="bg-white rounded-xl shadow-2xl flex overflow-hidden max-w-3xl w-full mx-4 animate-fade-in-up" style="min-height: 400px;">
+                    <!-- Left Image Side -->
+                    <div class="w-1/2 bg-zinc-900 relative">
+                        <img src="../multimedia/boleto.jpeg" class="w-full h-full object-cover opacity-90 absolute inset-0">
                     </div>
-                    <button onclick="document.getElementById('qrModal').classList.add('hidden')" class="px-6 py-2 bg-zinc-900 text-white text-xs font-bold uppercase tracking-widest rounded-full hover:bg-zinc-800 transition-all">Cerrar</button>
+                    
+                    <!-- Right Content Side -->
+                    <div class="w-1/2 p-8 flex flex-col items-center justify-center text-center bg-white relative">
+                        <img src="../multimedia/logoA.png" class="w-12 mb-4 opacity-80">
+                        
+                        <h2 class="font-serif text-3xl text-zinc-900 mb-1">Bienvenido</h2>
+                        <p class="font-serif italic text-zinc-500 mb-4 font-light">Acceso al Evento</p>
+                        
+                        <!-- Dynamic Labels -->
+                        <div class="mb-4 w-full">
+                            <p class="text-[10px] uppercase tracking-widest text-zinc-400">Tipo de Boleto</p>
+                            <p class="font-bold text-sm text-zinc-900 mb-1" id="qrType">...</p>
+                            <p class="text-xs text-zinc-500 italic" id="qrGuestLabel"></p>
+                        </div>
+
+                        <div class="mb-2">
+                             <p class="text-[10px] uppercase tracking-widest text-zinc-400">Titular</p>
+                             <p class="font-bold text-sm text-zinc-900" id="qrName">...</p>
+                        </div>
+
+                        <div class="mb-4">
+                             <p class="text-[10px] uppercase tracking-widest text-zinc-400">Asiento</p>
+                             <p class="font-mono text-lg text-zinc-900 font-bold" id="qrFolio">...</p>
+                        </div>
+                        
+                        <div class="bg-white p-2 border border-zinc-100 rounded-lg shadow-sm">
+                            <img id="qrImage" src="" class="w-28 h-28 object-contain">
+                        </div>
+
+                        <button onclick="document.getElementById('qrModal').classList.add('hidden')" class="absolute top-4 right-4 text-zinc-400 hover:text-zinc-900">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
             `;
             document.body.appendChild(modal);
         }
 
-        document.getElementById('qrSubtitle').innerText = name + (folio > 0 ? (' #' + String(folio).padStart(4, '0')) : '');
+        document.getElementById('qrName').innerText = name;
+        document.getElementById('qrFolio').innerText = folioText;
+        document.getElementById('qrType').innerText = typeLabel;
+        document.getElementById('qrGuestLabel').innerText = guestLabel || '';
         document.getElementById('qrImage').src = qrUrl;
         modal.classList.remove('hidden');
     }
 
-    function shareTicket(id, event, name) {
-        const text = `Hola ${name}, aquí tienes tu acceso para el evento "${event}". Tu ID de boleto es: ${id}.`;
-        if (navigator.share) {
-            navigator.share({
-                title: 'Boleto de Acceso',
-                text: text,
-                url: window.location.href
-            }).catch(console.error);
-        } else {
-            navigator.clipboard.writeText(text).then(() => alert('Enlace copiado al portapapeles'));
-        }
+    function downloadTicket(id, name, folio, tipo, guestLabel) {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=TICKET:${id}`;
+        const folioText = folio > 0 ? '#' + String(folio).padStart(4, '0') : '--';
+        const typeLabel = tipo.toUpperCase();
+
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'fixed';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.top = '0';
+        tempDiv.style.width = '800px';
+        tempDiv.style.height = '600px'; // Adjusted for Portrait Image Ratio (Approx 2:3)
+        tempDiv.style.display = 'flex';
+        tempDiv.style.backgroundColor = '#ffffff';
+        tempDiv.style.zIndex = '9999';
+
+        // Styles for PDF/Image Generation
+        tempDiv.innerHTML = `
+            <div style="width: 50%; height: 100%; position: relative; overflow: hidden;">
+                <!-- Use exact dimensions or allow stretch if container matches ratio -->
+                <img src="../multimedia/boleto.jpeg" style="width: 100%; height: 100%; object-fit: fill;"> 
+            </div>
+            <div style="width: 50%; height: 100%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: white; font-family: 'Times New Roman', serif;">
+                <img src="../multimedia/logoA.png" style="width: 50px; margin-bottom: 20px; opacity: 0.8;">
+                <h2 style="font-size: 32px; color: #18181b; margin: 0 0 5px 0;">Bienvenido</h2>
+                <p style="font-style: italic; color: #71717a; margin: 0 0 25px 0; font-size: 14px;">Acceso al Evento</p>
+                
+                <div style="margin-bottom: 15px; width: 100%;">
+                    <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #a1a1aa; margin: 0; font-family: sans-serif;">Tipo De Boleto</p>
+                    <p style="font-size: 16px; font-weight: bold; color: #18181b; margin: 4px 0 0 0; font-family: sans-serif;">${typeLabel}</p>
+                    ${guestLabel ? `<p style="font-size: 12px; color: #71717a; font-style: italic; margin: 2px 0 0 0;">${guestLabel}</p>` : ''}
+                </div>
+
+                <div style="margin-bottom: 15px; width: 100%;">
+                     <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #a1a1aa; margin: 0; font-family: sans-serif;">Titular</p>
+                     <p style="font-size: 15px; font-weight: bold; color: #18181b; margin: 4px 0 0 0; font-family: sans-serif;">${name}</p>
+                </div>
+
+                <div style="margin-bottom: 25px;">
+                     <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #a1a1aa; margin: 0; font-family: sans-serif;">Asiento</p>
+                     <p style="font-family: monospace; font-size: 18px; color: #18181b; font-weight: bold; margin: 4px 0 0 0;">${folioText}</p>
+                </div>
+                
+                <div style="padding: 8px; border: 1px solid #f4f4f5; border-radius: 8px;">
+                    <img src="${qrUrl}" style="width: 120px; height: 120px;">
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(tempDiv);
+
+        const imgs = tempDiv.querySelectorAll('img');
+        const promises = [];
+        imgs.forEach(img => {
+            if (!img.complete) {
+                promises.push(new Promise(resolve => {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                }));
+            }
+        });
+
+        Promise.all(promises).then(() => {
+            setTimeout(() => {
+                html2canvas(tempDiv, { useCORS: true, scale: 2 }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `Boleto_${typeLabel}_${folio}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    document.body.removeChild(tempDiv);
+                });
+            }, 500);
+        });
     }
 
     function exportTickets() {

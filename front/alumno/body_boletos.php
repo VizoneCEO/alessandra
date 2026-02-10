@@ -80,15 +80,15 @@ if ($res) {
                     </div>
                     <!-- Ticket Header / Event Info -->
                     <div class="bg-zinc-900 p-5 text-white relative overflow-hidden">
+                        <img src="../multimedia/boleto.jpeg" class="absolute inset-0 w-full h-full object-cover opacity-50 mix-blend-overlay">
                         <div class="absolute -right-4 -top-8 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
                         <h4 class="font-bold text-lg leading-tight mb-1 relative z-10">
                             <?php echo htmlspecialchars($t['evento']); ?>
                         </h4>
-                        <div class="flex items-center text-xs text-zinc-400 gap-3 mt-2 relative z-10">
-                            <span class="flex items-center"><i class="fas fa-calendar mr-1.5"></i>
+                        <div class="flex items-center text-xs text-zinc-100 gap-3 mt-2 relative z-10">
+                            <span class="flex items-center"><i class="fas fa-calendar mr-1.5 opacity-80"></i>
                                 <?php echo $dateFormatted; ?>
                             </span>
-                            <!-- <span class="flex items-center"><i class="fas fa-clock mr-1.5"></i> <?php echo $timeFormatted; ?></span> -->
                         </div>
                     </div>
 
@@ -128,9 +128,9 @@ if ($res) {
                         </span>
 
                         <button
-                            onclick="shareTicket(<?php echo $t['id']; ?>, '<?php echo $t['evento']; ?>', '<?php echo $folioPad; ?>')"
-                            class="text-zinc-400 hover:text-zinc-900 transition-colors flex items-center gap-1 font-medium">
-                            <i class="fas fa-share-alt"></i> Compartir
+                            onclick="downloadTicket(<?php echo $t['id']; ?>, '<?php echo htmlspecialchars($t['evento']); ?>', '<?php echo $t['folio_asiento']; ?>')"
+                            class="text-zinc-400 hover:text-emerald-600 transition-colors flex items-center gap-1 font-medium">
+                            <i class="fas fa-download"></i> Descargar Boleto
                         </button>
                     </div>
                 </div>
@@ -151,53 +151,77 @@ if ($res) {
 </div>
 
 <script>
+    function downloadTicket(id, eventName, folio) {
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=TICKET:${id}`;
+        const folioText = folio > 0 ? '#' + String(folio).padStart(4, '0') : '--';
+        const typeLabel = 'ALUMNO';
+        const studentName = '<?php echo htmlspecialchars($_SESSION['user_name']); ?>';
 
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'fixed';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.top = '0';
+        tempDiv.style.width = '800px';
+        tempDiv.style.height = '600px';
+        tempDiv.style.display = 'flex';
+        tempDiv.style.backgroundColor = '#ffffff';
+        tempDiv.style.zIndex = '9999';
 
-    async function shareTicket(id, eventName, folio) {
-        const cardElement = document.getElementById('ticket-card-' + id);
+        // Styles matching Admin
+        tempDiv.innerHTML = `
+            <div style="width: 50%; height: 100%; position: relative; overflow: hidden;">
+                <img src="../multimedia/boleto.jpeg" style="width: 100%; height: 100%; object-fit: fill;"> 
+            </div>
+            <div style="width: 50%; height: 100%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: white; font-family: 'Times New Roman', serif;">
+                <img src="../multimedia/logoA.png" style="width: 50px; margin-bottom: 20px; opacity: 0.8;">
+                <h2 style="font-size: 32px; color: #18181b; margin: 0 0 5px 0;">Bienvenido</h2>
+                <p style="font-style: italic; color: #71717a; margin: 0 0 25px 0; font-size: 14px;">Acceso al Evento</p>
+                
+                <div style="margin-bottom: 15px; width: 100%;">
+                    <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #a1a1aa; margin: 0; font-family: sans-serif;">Tipo De Boleto</p>
+                    <p style="font-size: 16px; font-weight: bold; color: #18181b; margin: 4px 0 0 0; font-family: sans-serif;">${typeLabel}</p>
+                </div>
 
-        if (!cardElement) return;
+                <div style="margin-bottom: 15px; width: 100%;">
+                     <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #a1a1aa; margin: 0; font-family: sans-serif;">Titular</p>
+                     <p style="font-size: 15px; font-weight: bold; color: #18181b; margin: 4px 0 0 0; font-family: sans-serif;">${studentName}</p>
+                </div>
 
-        // Visual feedback
-        const originalText = event.currentTarget.innerHTML;
-        event.currentTarget.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+                <div style="margin-bottom: 25px;">
+                     <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #a1a1aa; margin: 0; font-family: sans-serif;">Asiento</p>
+                     <p style="font-family: monospace; font-size: 18px; color: #18181b; font-weight: bold; margin: 4px 0 0 0;">${folioText}</p>
+                </div>
+                
+                <div style="padding: 8px; border: 1px solid #f4f4f5; border-radius: 8px;">
+                    <img src="${qrUrl}" style="width: 120px; height: 120px;">
+                </div>
+            </div>
+        `;
 
-        try {
-            // Capture container
-            const canvas = await html2canvas(cardElement, {
-                scale: 2, // Better quality
-                backgroundColor: '#ffffff',
-                useCORS: true // Attempt to load external images if any
-            });
+        document.body.appendChild(tempDiv);
 
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-            const file = new File([blob], `boleto_${folio}.png`, { type: 'image/png' });
-
-            const shareData = {
-                title: 'Mi Boleto - ' + eventName,
-                text: `Aquí está mi boleto para ${eventName}. Folio #${folio}`,
-                files: [file]
-            };
-
-            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-                await navigator.share(shareData);
-            } else {
-                // Fallback: Download
-                const link = document.createElement('a');
-                link.download = `boleto_${eventName}_${folio}.png`;
-                link.href = canvas.toDataURL();
-                link.click();
-                alert('La imagen se ha descargado a tu dispositivos.');
+        const imgs = tempDiv.querySelectorAll('img');
+        const promises = [];
+        imgs.forEach(img => {
+            if (!img.complete) {
+                promises.push(new Promise(resolve => {
+                    img.onload = resolve;
+                    img.onerror = resolve;
+                }));
             }
-        } catch (err) {
-            console.error('Error sharing:', err);
-            alert('No se pudo generar la imagen para compartir.');
-        } finally {
-            // Restore button
-            // Note: event.currentTarget might be lost in async, but usually ok if not removed from DOM
-            // Better to just reload simple text or use a persistent reference if needed.
-            // We'll just ignore restoring for this snippet or user reloads page.
-        }
+        });
+
+        Promise.all(promises).then(() => {
+            setTimeout(() => {
+                html2canvas(tempDiv, { useCORS: true, scale: 2 }).then(canvas => {
+                    const link = document.createElement('a');
+                    link.download = `Boleto_${eventName}_${folio}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    document.body.removeChild(tempDiv);
+                });
+            }, 500);
+        });
     }
 </script>
 

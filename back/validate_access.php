@@ -15,12 +15,12 @@ if (!empty($ticket_json)) {
 
     $ticket_id = intval($data['id']);
 
-    // Fetch Ticket + Event + Student
-    // Also check if Event is today? Optional.
-    $sql = "SELECT b.*, e.nombre as evento, e.fecha as fecha_evento, u.nombre_completo, u.curp, u.estado as status_alumno
+    // Fetch Ticket + Event + Student + Cargo Concept + Profile
+    $sql = "SELECT b.*, e.nombre as evento, e.fecha as fecha_evento, u.nombre_completo, u.curp, u.perfil_id, u.estado as status_alumno, c.concepto as cargo_concepto
             FROM finanzas_boletos b 
             JOIN finanzas_eventos e ON b.evento_id = e.id 
             JOIN Usuarios u ON b.alumno_id = u.id 
+            LEFT JOIN finanzas_cargos c ON b.cargo_id = c.id
             WHERE b.id = $ticket_id LIMIT 1";
 
     $res = $conn->query($sql);
@@ -32,6 +32,34 @@ if (!empty($ticket_json)) {
         if ($p = $res_pic->fetch_assoc())
             $photo = $p['archivo_path'];
 
+        // Determine Ticket Type
+        $tipo = 'STAFF';
+        $concepto = $row['cargo_concepto'] ?? '';
+        $perfil = intval($row['perfil_id']);
+
+        if ($row['curp'] === 'EXTERNO0000000000') {
+            $tipo = 'STAFF';
+        } elseif (stripos($concepto, 'Invitados') !== false) {
+            $tipo = 'INVITADO';
+        } elseif (stripos($concepto, 'Modelos') !== false) {
+            $tipo = 'MODELO';
+        } else {
+            if ($perfil === 1)
+                $tipo = 'ADMINISTRATIVO';
+            elseif ($perfil === 2)
+                $tipo = 'DOCENTE';
+            elseif ($perfil === 3)
+                $tipo = 'ALUMNO';
+            elseif ($perfil === 4)
+                $tipo = 'STAFF';
+            else {
+                if (stripos($concepto, 'Staff') !== false)
+                    $tipo = 'STAFF';
+                else
+                    $tipo = 'GENERAL';
+            }
+        }
+
         // Validation Rules
         if ($row['estado_uso'] == 'Usado') {
             echo json_encode([
@@ -42,17 +70,16 @@ if (!empty($ticket_json)) {
                     'foto' => $photo,
                     'vigencia' => 'Folio #' . str_pad($row['folio_asiento'], 4, '0', STR_PAD_LEFT),
                     'status_text' => 'USADO',
-                    'evento' => $row['evento'], // Added
-                    'folio_display' => str_pad($row['folio_asiento'], 4, '0', STR_PAD_LEFT) // Added
+                    'evento' => $row['evento'],
+                    'folio_display' => str_pad($row['folio_asiento'], 4, '0', STR_PAD_LEFT),
+                    'tipo_boleto' => $tipo // Also return type on error
                 ]
             ]);
             exit();
         }
 
         // Success - Mark as Used? 
-        // Ideally we should have a "Check-in" button confirmation or auto-checkin.
-        // For security speed, auto-checkin is common.
-        // Let's Auto-Checkin for now.
+        // Auto-Checkin
         $conn->query("UPDATE finanzas_boletos SET estado_uso = 'Usado' WHERE id = $ticket_id");
 
         echo json_encode([
@@ -65,7 +92,8 @@ if (!empty($ticket_json)) {
                 'folio' => str_pad($row['folio_asiento'], 4, '0', STR_PAD_LEFT),
                 'alumno' => $row['nombre_completo'],
                 'foto' => $photo,
-                'status' => 'CHECK-IN EXITOSO'
+                'status' => 'CHECK-IN EXITOSO',
+                'tipo_boleto' => $tipo
             ],
             'student' => [
                 'nombre' => $row['nombre_completo'],

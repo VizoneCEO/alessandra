@@ -212,8 +212,20 @@
         let bodyPayload = 'mode=' + SCAN_MODE; // Send mode
 
         let isJsonTicket = false;
-        if (SCAN_MODE === 'event') {
-            // Try to parse as Ticket JSON
+
+        // Handle "TICKET:ID" format (From Downloaded Images)
+        if (code.startsWith('TICKET:')) {
+            const ticketId = code.split(':')[1];
+            if (ticketId) {
+                // Emulate JSON structure expected by backend
+                const fakeJson = JSON.stringify({ id: ticketId });
+                bodyPayload += '&ticket_data=' + encodeURIComponent(fakeJson);
+                isJsonTicket = true;
+            }
+        }
+
+        if (SCAN_MODE === 'event' && !isJsonTicket) {
+            // Try to parse as Ticket JSON (From Screen QR)
             try {
                 let jsonObj = JSON.parse(code);
                 if (jsonObj && jsonObj.id) {
@@ -315,17 +327,76 @@
         } else if (data.is_ticket && data.data) {
             // --- PREMIUM TICKET SUCCESS STATE ---
             const t = data.data; // Event, Folio, Seat, etc.
+            const typeKey = (t.tipo_boleto || 'GENERICO').toUpperCase();
+            
+            // Define Color Themes per Type
+            const theme = {
+                'ALUMNO': { 
+                    bgHeader: 'bg-blue-950', 
+                    accent: 'text-blue-500', 
+                    glow: 'shadow-[0_0_40px_rgba(59,130,246,0.8)]',
+                    ring: 'ring-blue-500/10',
+                    iconBg: 'bg-blue-500/20',
+                    icon: 'text-blue-500',
+                    btn: 'bg-blue-600 hover:bg-blue-500',
+                    btnShadow: 'shadow-blue-900/20'
+                },
+                'INVITADO': { 
+                    bgHeader: 'bg-purple-950', 
+                    accent: 'text-purple-500', 
+                    glow: 'shadow-[0_0_40px_rgba(168,85,247,0.8)]',
+                    ring: 'ring-purple-500/10',
+                    iconBg: 'bg-purple-500/20',
+                    icon: 'text-purple-500',
+                    btn: 'bg-purple-600 hover:bg-purple-500',
+                    btnShadow: 'shadow-purple-900/20'
+                },
+                'MODELO': { 
+                    bgHeader: 'bg-pink-950', 
+                    accent: 'text-pink-500', 
+                    glow: 'shadow-[0_0_40px_rgba(236,72,153,0.8)]',
+                    ring: 'ring-pink-500/10',
+                    iconBg: 'bg-pink-500/20',
+                    icon: 'text-pink-500',
+                    btn: 'bg-pink-600 hover:bg-pink-500',
+                    btnShadow: 'shadow-pink-900/20'
+                },
+                'STAFF': { 
+                    bgHeader: 'bg-zinc-900', 
+                    accent: 'text-zinc-500', 
+                    glow: 'shadow-[0_0_40px_rgba(113,113,122,0.8)]',
+                    ring: 'ring-zinc-500/10',
+                    iconBg: 'bg-zinc-500/20',
+                    icon: 'text-zinc-400',
+                    btn: 'bg-zinc-700 hover:bg-zinc-600',
+                    btnShadow: 'shadow-zinc-900/20'
+                }
+            }[typeKey] || { 
+                // Default (Emerald)
+                bgHeader: 'bg-zinc-950', 
+                accent: 'text-emerald-500', 
+                glow: 'shadow-[0_0_40px_rgba(16,185,129,0.8)]',
+                ring: 'ring-emerald-500/10',
+                iconBg: 'bg-emerald-500/20',
+                icon: 'text-emerald-500',
+                btn: 'bg-emerald-600 hover:bg-emerald-500',
+                btnShadow: 'shadow-emerald-900/20'
+            };
 
             contentHTML = `
                 <!-- Ticket Header -->
-                <div class="relative bg-zinc-950 p-6 text-center border-b border-zinc-800 overflow-hidden">
+                <div class="relative ${theme.bgHeader} p-6 text-center border-b border-zinc-800 overflow-hidden">
                     <!-- Glow Effect -->
-                    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.8)]"></div>
+                    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-current ${theme.accent} ${theme.glow}"></div>
                     
                     <div class="relative z-10">
-                        <p class="text-[10px] uppercase tracking-[0.3em] text-emerald-500 font-bold mb-2">ACCESS GRANTED</p>
-                        <h2 class="text-xl md:text-2xl font-serif text-white font-bold leading-tight uppercase">${t.evento}</h2>
-                        <p class="text-zinc-500 text-xs mt-1 font-mono">${t.fecha}</p>
+                        <p class="text-[10px] uppercase tracking-[0.3em] ${theme.accent} font-bold mb-2">ACCESS GRANTED</p>
+                        <h2 class="text-xl md:text-2xl font-serif text-white font-bold leading-tight uppercase mb-4">${t.evento}</h2>
+                        
+                        <!-- BIG TICKET TYPE LABEL -->
+                        <div class="inline-block px-4 py-1.5 rounded border border-white/10 bg-black/20 backdrop-blur-sm">
+                             <p class="text-xs font-bold uppercase tracking-[0.2em] text-white/90">${typeKey}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -336,8 +407,8 @@
                     <div class="absolute top-0 right-0 w-6 h-6 bg-black rounded-full -mt-3 -mr-3"></div>
 
                     <div class="flex flex-col items-center">
-                        <div class="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6 ring-4 ring-emerald-500/10">
-                            <i class="fas fa-check text-4xl text-emerald-500"></i>
+                        <div class="w-24 h-24 ${theme.iconBg} rounded-full flex items-center justify-center mb-6 ring-4 ${theme.ring}">
+                            <i class="fas fa-check text-4xl ${theme.icon}"></i>
                         </div>
 
                         <div class="text-center mb-8">
@@ -349,17 +420,16 @@
 
                         <!-- Attendee Card -->
                         <div class="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
-                            <img src="${t.foto || 'https://ui-avatars.com/api/?name=User'}" class="w-14 h-14 rounded-full object-cover border-2 border-emerald-500/20">
+                            <img src="${t.foto || 'https://ui-avatars.com/api/?name=User'}" class="w-14 h-14 rounded-full object-cover border-2 border-zinc-800">
                             <div>
-                                <p class="text-[9px] uppercase text-emerald-500 font-bold tracking-wider mb-0.5">Asistente Verificado</p>
+                                <p class="text-[9px] uppercase ${theme.accent} font-bold tracking-wider mb-0.5">Asistente Verificado</p>
                                 <p class="text-white font-bold text-sm leading-snug">${t.alumno}</p>
-                                <p class="text-zinc-500 text-[10px] mt-0.5">${t.status}</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Footer Action -->
-                    <button onclick="closeModal()" class="mt-8 w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold uppercase tracking-widest transition-colors rounded-xl shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2">
+                    <button onclick="closeModal()" class="mt-8 w-full py-4 ${theme.btn} text-white font-bold uppercase tracking-widest transition-colors rounded-xl shadow-lg ${theme.btnShadow} flex items-center justify-center gap-2">
                         <span>Escanear Siguiente</span> <i class="fas fa-arrow-right"></i>
                     </button>
                     
