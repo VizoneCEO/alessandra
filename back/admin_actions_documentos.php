@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'db_connect.php';
+require_once 'log_helper.php';
 
 // Security Check: Admin Only
 if (!isset($_SESSION['user_id']) || $_SESSION['perfil_id'] != 1) {
@@ -18,6 +19,8 @@ if ($action === 'approve') {
     $stmt->bind_param("i", $doc_id);
 
     if ($stmt->execute()) {
+        // LOG
+        registrar_log($conn, $_SESSION['user_id'], 'APPROVE_DOC', "Documento aprobado: ID $doc_id", "Alumno ID: $alumno_id");
         $_SESSION['message'] = ['type' => 'success', 'text' => 'Documento aprobado exitosamente.'];
     } else {
         $_SESSION['message'] = ['type' => 'error', 'text' => 'Error al aprobar documento.'];
@@ -34,6 +37,8 @@ if ($action === 'approve') {
     $stmt->bind_param("si", $motivo, $doc_id);
 
     if ($stmt->execute()) {
+        // LOG
+        registrar_log($conn, $_SESSION['user_id'], 'REJECT_DOC', "Documento rechazado: ID $doc_id", "Motivo: $motivo");
         $_SESSION['message'] = ['type' => 'success', 'text' => 'Documento rechazado. Se ha notificado al alumno.'];
     } else {
         $_SESSION['message'] = ['type' => 'error', 'text' => 'Error al rechazar documento.'];
@@ -104,6 +109,8 @@ if ($action === 'approve') {
         $stmt->bind_param("iss", $alumno_id, $tipo, $dbPath);
 
         if ($stmt->execute()) {
+            // LOG
+            registrar_log($conn, $_SESSION['user_id'], 'UPLOAD_DOC_ADMIN', "Documento subido por Admin: $tipo", "Alumno ID: $alumno_id");
             $_SESSION['message'] = ['type' => 'success', 'text' => 'Documento subido y aprobado correctamente.'];
         } else {
             $_SESSION['message'] = ['type' => 'error', 'text' => 'Error al guardar en BD.'];

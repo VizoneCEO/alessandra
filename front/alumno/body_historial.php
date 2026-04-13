@@ -182,7 +182,12 @@ $gpa_class = ($promedio_general < 8.0) ? 'text-rose-600' : 'text-zinc-900';
                 class="bg-white rounded-lg border border-zinc-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col h-full">
                 <!-- Header Semestre -->
                 <div class="px-6 py-4 bg-zinc-50 border-b border-zinc-100 flex items-center justify-between">
-                    <h5 class="text-sm font-bold uppercase tracking-widest text-zinc-800">Semestre <?php echo $i; ?></h5>
+                    <div class="flex items-center gap-3">
+                        <h5 class="text-sm font-bold uppercase tracking-widest text-zinc-800">Semestre <?php echo $i; ?></h5>
+                        <a href="print_boleta.php?semestre=<?php echo $i; ?>" target="_blank" class="w-6 h-6 flex items-center justify-center rounded bg-zinc-200/50 hover:bg-sky-500 hover:text-white text-zinc-400 text-[10px] transition-colors" title="Imprimir Boleta">
+                            <i class="fas fa-print"></i>
+                        </a>
+                    </div>
                     <span class="h-2 w-2 rounded-full bg-zinc-300"></span>
                 </div>
 

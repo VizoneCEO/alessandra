@@ -1,6 +1,10 @@
 <?php
 session_start();
+// Add log helper
 require_once 'db_connect.php';
+require_once 'log_helper.php';
+
+
 
 if (!isset($_SESSION['user_id']) || $_SESSION['perfil_id'] != 3) {
     header("Location: ../index.php");
@@ -68,19 +72,20 @@ if ($action === 'upload') {
 
     if (move_uploaded_file($file['tmp_name'], $targetPath)) {
         // Insert or Update ON DUPLICATE KEY UPDATE logic (using UNIQUE key)
-        // Reset status to Pendiente on re-upload
+// Reset status to Pendiente on re-upload
         $sql = "INSERT INTO Documentos_Alumno (alumno_id, tipo_documento, archivo_path, estado, mensaje_rechazo)
-                VALUES (?, ?, ?, 'Pendiente', NULL)
-                ON DUPLICATE KEY UPDATE 
-                archivo_path = VALUES(archivo_path), 
-                estado = 'Pendiente', 
-                mensaje_rechazo = NULL,
-                fecha_subida = NOW()";
+VALUES (?, ?, ?, 'Pendiente', NULL)
+ON DUPLICATE KEY UPDATE
+archivo_path = VALUES(archivo_path),
+estado = 'Pendiente',
+mensaje_rechazo = NULL,
+fecha_subida = NOW()";
 
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("iss", $alumno_id, $tipo, $dbPath);
 
         if ($stmt->execute()) {
+            registrar_log($conn, $alumno_id, 'UPLOAD_DOC_ALUMNO', "Documento subido: $tipo", "Estado: Pendiente");
             $_SESSION['message'] = ['type' => 'success', 'text' => 'Documento subido correctamente. En espera de validación.'];
         } else {
             $_SESSION['message'] = ['type' => 'error', 'text' => 'Error al guardar en base de datos.'];
@@ -107,30 +112,30 @@ if ($action === 'upload') {
         } else {
             // Delete file
             $filePath = __DIR__ . '/../../' . str_replace('../../', '', $row['archivo_path']); // Fix relative path for server
-            // Actually, DB path is relative to 'front/...'. 
-            // DB path stored: '../../uploads/...'
-            // Current script is in 'back/'.
-            // So DB path '../../uploads' relative to 'front/alumno' means 'root/uploads'.
-            // Current script 'back/' needs '../uploads'.
-            // Let's rely on absolute path logic or fixed relative.
+// Actually, DB path is relative to 'front/...'.
+// DB path stored: '../../uploads/...'
+// Current script is in 'back/'.
+// So DB path '../../uploads' relative to 'front/alumno' means 'root/uploads'.
+// Current script 'back/' needs '../uploads'.
+// Let's rely on absolute path logic or fixed relative.
 
-            // Re-resolve: 
-            // stored: ../../uploads/documentos/file.pdf (relative to front/alumno/body.php)
-            // real path: root/uploads/documentos/file.pdf
-            // this script: root/back/action.php
-            // target from here: ../uploads/documentos/file.pdf
+            // Re-resolve:
+// stored: ../../uploads/documentos/file.pdf (relative to front/alumno/body.php)
+// real path: root/uploads/documentos/file.pdf
+// this script: root/back/action.php
+// target from here: ../uploads/documentos/file.pdf
 
             $realPath = __DIR__ . '/../' . $row['archivo_path']; // ../../../uploads... no wait.
-            // If stored is '../../uploads', that goes up 2 levels from front/alumno -> root.
-            // So it IS root/uploads.
-            // From back/ (1 level deep), we need ../uploads.
-            // So we need to remove one '../' from the stored path? 
-            // No, easiest is just construct absolute path if possible or map it.
+// If stored is '../../uploads', that goes up 2 levels from front/alumno -> root.
+// So it IS root/uploads.
+// From back/ (1 level deep), we need ../uploads.
+// So we need to remove one '../' from the stored path?
+// No, easiest is just construct absolute path if possible or map it.
 
-            // Let's try: ../uploads/documentos/filename 
-            // The stored path is intended for HREF (HTML). 
-            // Ideally we store relative to root 'uploads/...'. 
-            // But current code stored '../../uploads/...'. 
+            // Let's try: ../uploads/documentos/filename
+// The stored path is intended for HREF (HTML).
+// Ideally we store relative to root 'uploads/...'.
+// But current code stored '../../uploads/...'.
 
             // Fix: Just use the filename if standard structure.
             $filename = basename($row['archivo_path']);
@@ -144,6 +149,7 @@ if ($action === 'upload') {
             $del = $conn->prepare("DELETE FROM Documentos_Alumno WHERE id = ?");
             $del->bind_param("i", $doc_id);
             if ($del->execute()) {
+                registrar_log($conn, $alumno_id, 'DELETE_DOC_ALUMNO', "Documento eliminado: ID $doc_id");
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Documento eliminado.'];
             } else {
                 $_SESSION['message'] = ['type' => 'error', 'text' => 'Error al eliminar registro.'];

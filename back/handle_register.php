@@ -46,6 +46,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stmt_update->bind_param("si", $password_hash, $user['id']);
 
     if ($stmt_update->execute()) {
+        require_once 'log_helper.php';
+        registrar_log($conn, $user['id'], 'REGISTER_PASSWORD', "Usuario activó su cuenta (Password creado).");
         $_SESSION['register_success'] = "¡Contraseña creada con éxito! Ahora puedes iniciar sesión.";
         header("Location: ../index.php"); // Lo mandamos al login con mensaje de éxito
         exit();

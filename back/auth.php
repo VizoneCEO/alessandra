@@ -41,6 +41,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 // Usamos un SWITCH para redirigir según el perfil_id
                 $redirect_url = '';
+
+                // Logging successful login
+                require_once 'log_helper.php';
+                registrar_log($conn, $user['id'], 'LOGIN', 'Inicio de sesión exitoso', "Perfil ID: " . $user['perfil_id']);
+
                 switch ($_SESSION['perfil_id']) {
                     case 1: // Administrador
                         $redirect_url = '../front/admin/dashboard.php';
@@ -57,10 +62,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     case 5: // Finanzas
                         $redirect_url = '../front/finanzas/dashboard.php';
                         break;
+                    case 6: // Ayudante Administrativo
+                        $redirect_url = '../front/ayudante/dashboard.php';
+                        break;
                     default:
                         // Si por alguna razón no tiene un perfil válido, lo mandamos al index
                         $redirect_url = '../index.php';
                         $_SESSION['login_error'] = "Perfil de usuario no reconocido.";
+                        registrar_log($conn, $user['id'], 'LOGIN_ERROR', 'Perfil no reconocido', "Perfil ID: " . $user['perfil_id']);
                         break;
                 }
                 header("Location: " . $redirect_url);

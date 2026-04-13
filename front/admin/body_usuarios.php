@@ -49,7 +49,7 @@ while ($acc = $result_accounts->fetch_assoc()) {
 <div class="bg-white rounded-xl shadow-sm border border-zinc-100 p-6 mb-8">
     <h6 class="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-4"><i class="fas fa-user-plus mr-1"></i>
         Registrar Nuevo Usuario</h6>
-    <form action="../../back/admin_actions.php" method="POST">
+    <form action="../../back/admin_actions.php" method="POST" onsubmit="handleFormSubmit(event)">
         <input type="hidden" name="action" value="create_user">
         <div class="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
             <div>
@@ -103,7 +103,7 @@ while ($acc = $result_accounts->fetch_assoc()) {
         <!-- Form New Account -->
         <div class="w-full md:w-1/3 border-r border-zinc-100 pr-0 md:pr-8">
             <p class="text-sm font-bold text-zinc-800 mb-3">Agregar Nueva Cuenta</p>
-            <form action="../../back/admin_actions.php" method="POST">
+            <form action="../../back/admin_actions.php" method="POST" onsubmit="handleFormSubmit(event)">
                 <input type="hidden" name="action" value="create_account">
                 <div class="space-y-4">
                     <div>
@@ -273,6 +273,18 @@ while ($acc = $result_accounts->fetch_assoc()) {
                                         <i class="fas fa-folder-open fa-lg"></i>
                                     </a>
 
+                                    <a href="dashboard.php?page=alumno_clases&user_id=<?php echo $row['id']; ?>"
+                                        class="text-emerald-600 hover:text-emerald-800 transition-colors"
+                                        title="Ver Historial Académico">
+                                        <i class="fas fa-graduation-cap fa-lg"></i>
+                                    </a>
+
+                                    <a href="dashboard.php?page=contacto_estudiante&id_usuario=<?php echo $row['id']; ?>"
+                                        class="text-fuchsia-600 hover:text-fuchsia-800 transition-colors"
+                                        title="Ver Perfil Médico y Contacto">
+                                        <i class="fas fa-id-card-clip fa-lg"></i>
+                                    </a>
+
                                     <button
                                         onclick="openAssignModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['nombre_completo']); ?>', '<?php echo $row['cuenta_deposito_id'] ?? ''; ?>')"
                                         class="text-emerald-600 hover:text-emerald-800 transition-colors"
@@ -289,7 +301,8 @@ while ($acc = $result_accounts->fetch_assoc()) {
                                 </button>
 
                                 <form action="../../back/admin_actions.php" method="POST" class="inline"
-                                    onsubmit="return confirm('¿Liberar contraseña de <?php echo htmlspecialchars($row['nombre_completo']); ?>?');">
+                                    onsubmit="handleFormSubmit(event)"
+                                    data-confirm="¿Liberar contraseña de <?php echo htmlspecialchars($row['nombre_completo']); ?>?">
                                     <input type="hidden" name="action" value="reset_password">
                                     <input type="hidden" name="user_id" value="<?php echo $row['id']; ?>">
                                     <button type="submit"
@@ -300,7 +313,8 @@ while ($acc = $result_accounts->fetch_assoc()) {
                                 </form>
 
                                 <form action="../../back/admin_actions.php" method="POST" class="inline"
-                                    onsubmit="return confirm('¿Cambiar estado de <?php echo htmlspecialchars($row['nombre_completo']); ?>?');">
+                                    onsubmit="handleFormSubmit(event)"
+                                    data-confirm="¿Cambiar estado de <?php echo htmlspecialchars($row['nombre_completo']); ?>?">
                                     <input type="hidden" name="action" value="toggle_status">
                                     <input type="hidden" name="user_id" value="<?php echo $row['id']; ?>">
                                     <button type="submit"
@@ -324,7 +338,7 @@ while ($acc = $result_accounts->fetch_assoc()) {
     class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
     <div
         class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 opacity-100">
-        <form action="../../back/admin_actions.php" method="POST">
+        <form action="../../back/admin_actions.php" method="POST" onsubmit="handleFormSubmit(event)">
             <div class="px-6 py-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50">
                 <h5 class="font-bold text-zinc-900">Editar Usuario</h5>
                 <button type="button" onclick="closeEditModal()"
@@ -385,7 +399,7 @@ while ($acc = $result_accounts->fetch_assoc()) {
     class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
     <div
         class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 opacity-100">
-        <form action="../../back/admin_actions.php" method="POST">
+        <form action="../../back/admin_actions.php" method="POST" onsubmit="handleFormSubmit(event)">
             <div class="px-6 py-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50">
                 <h5 class="font-bold text-zinc-900">Asignar Cuenta de Depósito</h5>
                 <button type="button" onclick="closeAssignModal()"
@@ -435,7 +449,7 @@ while ($acc = $result_accounts->fetch_assoc()) {
     class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
     <div
         class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 opacity-100">
-        <form action="../../back/admin_actions.php" method="POST">
+        <form action="../../back/admin_actions.php" method="POST" onsubmit="handleFormSubmit(event)">
             <div class="px-6 py-4 border-b border-zinc-100 flex justify-between items-center bg-rose-50">
                 <h5 class="font-bold text-rose-900"><i class="fas fa-exclamation-triangle mr-2"></i> Eliminar Cuenta
                 </h5>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'db_connect.php';
+require 'log_helper.php';
 
 // --- Seguridad: Solo administradores pueden ejecutar estas acciones ---
 if (!isset($_SESSION['user_id']) || $_SESSION['perfil_id'] != 1) {
@@ -20,6 +21,8 @@ if (isset($_POST['action'])) {
             $stmt = $conn->prepare("INSERT INTO Ciclos_Escolares (nombre_ciclo, fecha_inicio, fecha_fin) VALUES (?, ?, ?)");
             $stmt->bind_param("sss", $nombre, $inicio, $fin);
             if ($stmt->execute()) {
+                // LOG
+                registrar_log($conn, $_SESSION['user_id'], 'CREATE_CICLO', "Ciclo creado: $nombre", "$inicio - $fin");
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Ciclo escolar creado exitosamente.'];
             } else {
                 // Capturamos un posible error de 'nombre_ciclo' duplicado
@@ -45,6 +48,8 @@ if (isset($_POST['action'])) {
             $stmt = $conn->prepare("UPDATE Ciclos_Escolares SET estado = ? WHERE id = ?");
             $stmt->bind_param("si", $nuevo_estado, $ciclo_id);
             if ($stmt->execute()) {
+                // LOG
+                registrar_log($conn, $_SESSION['user_id'], 'UPDATE_CICLO_STATUS', "Estado de ciclo ID $ciclo_id cambiado a $nuevo_estado");
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Estado del ciclo actualizado.'];
             } else {
                 $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al actualizar el estado.'];

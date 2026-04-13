@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'db_connect.php';
+require_once 'log_helper.php';
 
 // Check if user is logged in and is a student
 if (!isset($_SESSION['user_id']) || $_SESSION['perfil_id'] != 3) {
@@ -97,6 +98,7 @@ if ($action === 'create') {
         }
 
         echo json_encode(['success' => true, 'message' => 'Proyecto publicado correctamente.']);
+        registrar_log($conn, $alumno_id, 'CREATE_PORTFOLIO', "Proyecto creado: $titulo", "Categoria: $categoria");
     } else {
         echo json_encode(['success' => false, 'message' => 'Error en base de datos.']);
     }
@@ -141,6 +143,7 @@ if ($action === 'create') {
     }
 
     echo json_encode(['success' => true, 'message' => 'Proyecto actualizado.']);
+    registrar_log($conn, $alumno_id, 'UPDATE_PORTFOLIO', "Proyecto actualizado: $titulo", "ID: $id");
 
 } elseif ($action === 'delete_image') {
     $img_id = intval($_POST['img_id']);
@@ -165,6 +168,7 @@ if ($action === 'create') {
         $conn->query("DELETE FROM Portafolio_Imagenes WHERE id = $img_id");
 
         echo json_encode(['success' => true, 'message' => 'Imagen eliminada.']);
+        registrar_log($conn, $alumno_id, 'DELETE_PORTFOLIO_IMG', "Imagen eliminada del portafolio.", "ID Imagen: $img_id");
     } else {
         echo json_encode(['success' => false, 'message' => 'Imagen no encontrada o sin permiso.']);
     }
@@ -201,6 +205,7 @@ if ($action === 'create') {
         $del->bind_param("i", $id);
         if ($del->execute()) {
             echo json_encode(['success' => true, 'message' => 'Proyecto eliminado.']);
+            registrar_log($conn, $alumno_id, 'DELETE_PORTFOLIO', "Proyecto eliminado: ID $id");
         } else {
             echo json_encode(['success' => false, 'message' => 'Error al eliminar de BD.']);
         }

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'db_connect.php';
+require 'log_helper.php';
 
 // --- Seguridad y Redirección ---
 // 1. Verificamos que sea un profesor quien realiza la acción
@@ -29,7 +30,7 @@ if (isset($_POST['action'])) {
                     break; // Salimos del switch
                 }
 
-                foreach($ponderaciones as $nombre_cat => $valor_pond) {
+                foreach ($ponderaciones as $nombre_cat => $valor_pond) {
                     // Buscamos si la categoría ya existe para esta clase
                     $stmt = $conn->prepare("SELECT id FROM Categorias_Calificacion WHERE clase_id = ? AND nombre_categoria = ?");
                     $stmt->bind_param("is", $clase_id, $nombre_cat);
@@ -47,6 +48,8 @@ if (isset($_POST['action'])) {
                         $stmt_insert->execute();
                     }
                 }
+                // LOG
+                registrar_log($conn, $_SESSION['user_id'], 'SAVE_WEIGHTS', "Ponderaciones guardadas. Clase ID: $clase_id");
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Ponderaciones guardadas exitosamente.'];
             }
             break;
@@ -56,7 +59,7 @@ if (isset($_POST['action'])) {
             if (isset($_POST['categoria_id'], $_POST['nombre_item'], $_POST['parcial'])) {
                 $categoria_id = $_POST['categoria_id'];
                 $nombre_item = trim($_POST['nombre_item']);
-                $parcial = (int)$_POST['parcial']; // <-- 1. OBTENEMOS EL PARCIAL
+                $parcial = (int) $_POST['parcial']; // <-- 1. OBTENEMOS EL PARCIAL
 
                 // Validamos que los datos sean correctos
                 if (!empty($nombre_item) && in_array($parcial, [1, 2, 3])) {
@@ -67,12 +70,14 @@ if (isset($_POST['action'])) {
                     $stmt->bind_param("isi", $categoria_id, $nombre_item, $parcial);
 
                     if ($stmt->execute()) {
+                        // LOG
+                        registrar_log($conn, $_SESSION['user_id'], 'CREATE_ITEM', "Elemento eval. creado: $nombre_item", "Parcial: $parcial");
                         $_SESSION['message'] = ['type' => 'success', 'text' => 'Elemento creado exitosamente.'];
                     } else {
                         $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al crear el elemento.'];
                     }
                 } else {
-                     $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Datos inválidos para crear el elemento.'];
+                    $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Datos inválidos para crear el elemento.'];
                 }
             }
             break;
@@ -85,6 +90,8 @@ if (isset($_POST['action'])) {
                 $stmt = $conn->prepare("DELETE FROM Actividades_Evaluables WHERE id = ?");
                 $stmt->bind_param("i", $actividad_id);
                 if ($stmt->execute()) {
+                    // LOG
+                    registrar_log($conn, $_SESSION['user_id'], 'DELETE_ITEM', "Elemento eval. eliminado: ID $actividad_id");
                     $_SESSION['message'] = ['type' => 'success', 'text' => 'Elemento eliminado correctamente.'];
                 } else {
                     $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error al eliminar el elemento.'];
@@ -99,15 +106,18 @@ if (isset($_POST['action'])) {
 
                 $stmt = $conn->prepare("INSERT INTO Calificaciones (inscripcion_id, actividad_id, calificacion_obtenida) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE calificacion_obtenida = VALUES(calificacion_obtenida)");
 
-                foreach($calificaciones as $inscripcion_id => $actividades) {
-                    foreach($actividades as $actividad_id => $nota) {
+                foreach ($calificaciones as $inscripcion_id => $actividades) {
+                    foreach ($actividades as $actividad_id => $nota) {
                         if ($nota !== '' && is_numeric($nota)) {
-                            $nota_decimal = (float)$nota;
+                            $nota_decimal = (float) $nota;
                             $stmt->bind_param("iid", $inscripcion_id, $actividad_id, $nota_decimal);
                             $stmt->execute();
                         }
                     }
+
                 }
+                // LOG
+                registrar_log($conn, $_SESSION['user_id'], 'SAVE_GRADES', "Calificaciones guardadas/actualizadas.", "Clase ID: $clase_id");
                 $_SESSION['message'] = ['type' => 'success', 'text' => 'Calificaciones guardadas correctamente.'];
             }
             break;

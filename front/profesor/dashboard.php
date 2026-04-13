@@ -16,6 +16,16 @@ if ($_SESSION['perfil_id'] != 2) {
 $view = isset($_GET['view']) ? $_GET['view'] : 'main';
 // main => body_clases.php (por defecto en el layout original del profesor solía ser así o 'clases')
 // Ajustaremos para que 'main' sea la vista de clases.
+
+// Fetch Unread Notifications Count
+require_once '../../back/db_connect.php';
+$uid = $_SESSION['user_id'];
+$q_ur = $conn->query("SELECT COUNT(*) as c FROM Mensajes WHERE destinatario_id = $uid AND leido = 0 AND deleted_at IS NULL");
+$unread_count = 0;
+if ($q_ur) {
+    $row_ur = $q_ur->fetch_assoc();
+    $unread_count = $row_ur['c'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -132,6 +142,26 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'main';
                 <span>Pendientes</span>
             </a>
 
+            <!-- Link: Notificaciones -->
+            <a href="dashboard.php?view=notificaciones"
+                class="group flex items-center px-4 py-3 text-sm font-medium rounded-md transition-all duration-200 relative overflow-hidden
+               <?php echo ($view == 'notificaciones') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'; ?>">
+
+                <?php if ($view == 'notificaciones'): ?>
+                    <span class="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600 rounded-r"></span>
+                <?php endif; ?>
+
+                <i
+                    class="fas fa-bell w-6 text-center text-lg mr-3 <?php echo ($view == 'notificaciones') ? 'text-indigo-500' : 'text-zinc-600 group-hover:text-indigo-500'; ?> transition-colors"></i>
+                <span>Notificaciones</span>
+                <?php if ($unread_count > 0): ?>
+                    <span
+                        class="ml-auto bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg pulse-animation">
+                        <?php echo $unread_count; ?>
+                    </span>
+                <?php endif; ?>
+            </a>
+
         </nav>
 
         <!-- Footer Profile -->
@@ -143,7 +173,8 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'main';
                 </div>
                 <div class="overflow-hidden">
                     <p class="text-xs font-bold text-white truncate">
-                        <?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
+                        <?php echo htmlspecialchars($_SESSION['user_name']); ?>
+                    </p>
                     <p class="text-[10px] text-zinc-500 uppercase tracking-widest">Profesor</p>
                 </div>
             </div>
@@ -168,6 +199,8 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'main';
                         echo 'Reporte Ejecutivo'; ?>
                     <?php if ($view == 'no_calificados')
                         echo 'Alumnos Pendientes'; ?>
+                    <?php if ($view == 'notificaciones')
+                        echo 'Notificaciones'; ?>
                 </h1>
             </div>
             <!-- Botón móvil si fuera necesario, por ahora desktop first según diseño -->
@@ -179,7 +212,7 @@ $view = isset($_GET['view']) ? $_GET['view'] : 'main';
         <!-- Dynamic Content -->
         <div class="flex-1 overflow-y-auto p-8 md:p-12">
             <?php
-            $allowed = ['main', 'reporte', 'no_calificados'];
+            $allowed = ['main', 'reporte', 'no_calificados', 'notificaciones'];
             if (in_array($view, $allowed)) {
                 // Mapeo 'main' a body_clases.php porque es el comportamiento legacy
                 if ($view == 'main')

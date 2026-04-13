@@ -29,6 +29,15 @@ $profile_pic = null;
 if ($row_pic = $res_pic->fetch_assoc()) {
     $profile_pic = $row_pic['archivo_path'];
 }
+
+// Fetch Unread Notifications Count
+$uid = $_SESSION['user_id'];
+$q_ur = $conn->query("SELECT COUNT(*) as c FROM Mensajes WHERE destinatario_id = $uid AND leido = 0 AND deleted_at IS NULL");
+$unread_count = 0;
+if ($q_ur) {
+    $row_ur = $q_ur->fetch_assoc();
+    $unread_count = $row_ur['c'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -108,6 +117,13 @@ if ($row_pic = $res_pic->fetch_assoc()) {
                     Dashboard
                 </a>
 
+                <a href="dashboard.php?view=informacion_contacto"
+                    class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all group <?php echo ($view == 'informacion_contacto') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'; ?>">
+                    <i
+                        class="fas fa-user-circle w-6 <?php echo ($view == 'informacion_contacto') ? 'text-fuchsia-400' : 'text-zinc-600 group-hover:text-fuchsia-400'; ?> transition-colors"></i>
+                    Mi Perfil
+                </a>
+
                 <a href="dashboard.php?view=credencial"
                     class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all group <?php echo ($view == 'credencial') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'; ?>">
                     <i
@@ -154,6 +170,19 @@ if ($row_pic = $res_pic->fetch_assoc()) {
                             class="fas fa-file-alt w-6 <?php echo ($view == 'documentos') ? 'text-amber-500' : 'text-zinc-600 group-hover:text-amber-500'; ?> transition-colors"></i>
                         Documentación
                     </a>
+
+                    <a href="dashboard.php?view=notificaciones"
+                        class="flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all group <?php echo ($view == 'notificaciones') ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white hover:bg-zinc-900'; ?>">
+                        <i
+                            class="fas fa-bell w-6 <?php echo ($view == 'notificaciones') ? 'text-amber-500' : 'text-zinc-600 group-hover:text-amber-500'; ?> transition-colors"></i>
+                        Notificaciones
+                        <?php if ($unread_count > 0): ?>
+                            <span
+                                class="ml-auto bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg pulse-animation">
+                                <?php echo $unread_count; ?>
+                            </span>
+                        <?php endif; ?>
+                    </a>
             </nav>
         </div>
 
@@ -194,6 +223,10 @@ if ($row_pic = $res_pic->fetch_assoc()) {
                         echo 'Expediente Digital';
                     elseif ($view == 'credencial')
                         echo 'Mi Credencial';
+                    elseif ($view == 'notificaciones')
+                        echo 'Notificaciones';
+                    elseif ($view == 'informacion_contacto')
+                        echo 'Perfil de Contacto';
                     else
                         echo 'Panel Alumno';
                     ?>
@@ -229,7 +262,7 @@ if ($row_pic = $res_pic->fetch_assoc()) {
                 <?php
                 // --- Cargador de contenido ---
                 // --- Cargador de contenido ---
-                $allowed_views = ['main', 'clases', 'historial', 'finanzas', 'boletos', 'portafolio', 'documentos', 'credencial'];
+                $allowed_views = ['main', 'clases', 'historial', 'finanzas', 'boletos', 'portafolio', 'documentos', 'credencial', 'notificaciones', 'informacion_contacto'];
                 if (in_array($view, $allowed_views)) {
                     include 'body_' . $view . '.php';
                 } else {
@@ -249,6 +282,13 @@ if ($row_pic = $res_pic->fetch_assoc()) {
             class="flex flex-col items-center gap-1 min-w-[3rem] shrink-0 <?php echo ($view == 'main') ? 'text-amber-500' : 'text-zinc-500 hover:text-zinc-300'; ?>">
             <i class="fas fa-columns text-lg"></i>
             <span class="text-[0.6rem] uppercase tracking-wider font-bold">Inicio</span>
+        </a>
+
+        <!-- 1.5 Perfil -->
+        <a href="dashboard.php?view=informacion_contacto"
+            class="flex flex-col items-center gap-1 min-w-[3rem] shrink-0 <?php echo ($view == 'informacion_contacto') ? 'text-fuchsia-400' : 'text-zinc-500 hover:text-zinc-300'; ?>">
+            <i class="fas fa-user-circle text-lg"></i>
+            <span class="text-[0.6rem] uppercase tracking-wider font-bold">Perfil</span>
         </a>
 
         <!-- 2. Credencial (ID) -->

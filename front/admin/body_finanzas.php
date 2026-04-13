@@ -293,6 +293,10 @@ if ($res_ciclos) {
                     class="bg-white border border-zinc-200 text-zinc-600 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 hover:border-zinc-900 hover:text-zinc-900 transition-all shadow-sm">
                     <i class="fas fa-graduation-cap mr-2 text-blue-500"></i> Inscripciones
                 </button>
+                <button onclick="openIndividualTuitionModal()"
+                    class="bg-white border border-zinc-200 text-sky-600 px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-50 hover:border-sky-500 hover:text-sky-600 transition-all shadow-sm">
+                    <i class="fas fa-user-check mr-2 text-sky-500"></i> Col. Individuales
+                </button>
                 <button onclick="triggerMonthlyCharges()"
                     class="bg-zinc-900 text-white px-4 py-2 rounded text-[10px] font-bold uppercase tracking-widest hover:bg-zinc-700 transition-colors shadow-lg shadow-zinc-200">
                     <i class="fas fa-bolt mr-2 text-amber-400"></i> Generar Cargos
@@ -1315,6 +1319,109 @@ if ($res_ciclos) {
 </div>
 
 </div>
+</div>
+
+<!-- MODAL COLEGIATURAS INDIVIDUALES -->
+<div id="individualTuitionModal" class="fixed inset-0 z-[65] hidden bg-zinc-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[90vh]">
+        <div class="px-6 py-5 border-b border-zinc-100 bg-zinc-50 flex justify-between items-center">
+            <div>
+                <h3 class="font-serif italic text-xl text-zinc-900">Colegiaturas Selectivas</h3>
+                <p class="text-xs text-zinc-400 mt-1 font-light">Generar cargos mensuales individuales por alumno.</p>
+            </div>
+            <button onclick="document.getElementById('individualTuitionModal').classList.add('hidden')" class="text-zinc-400 hover:text-rose-500">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="px-6 py-4 bg-white border-b border-zinc-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Mes</label>
+                <select id="indTuitionMonth" class="w-full px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none bg-white">
+                    <option value="Enero">Enero</option><option value="Febrero">Febrero</option><option value="Marzo">Marzo</option>
+                    <option value="Abril">Abril</option><option value="Mayo">Mayo</option><option value="Junio">Junio</option>
+                    <option value="Julio">Julio</option><option value="Agosto">Agosto</option><option value="Septiembre">Septiembre</option>
+                    <option value="Octubre">Octubre</option><option value="Noviembre">Noviembre</option><option value="Diciembre">Diciembre</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Año</label>
+                <input type="number" id="indTuitionYear" value="<?php echo date('Y'); ?>" class="w-full px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1">Vencimiento</label>
+                <input type="date" id="indTuitionDueDate" value="<?php echo date('Y-m-10'); ?>" class="w-full px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none">
+            </div>
+        </div>
+
+        <div class="px-6 py-3 bg-zinc-50 border-b border-zinc-100 flex flex-wrap items-center gap-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-zinc-400">Selección Rápida:</span>
+            <button onclick="setIndividualTuitionSelection('all')" class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-100 shadow-sm transition-colors">Todos</button>
+            <button onclick="setIndividualTuitionSelection('online')" class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-emerald-600 hover:bg-emerald-50 shadow-sm transition-colors">Online</button>
+            <button onclick="setIndividualTuitionSelection('presencial')" class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-blue-600 hover:bg-blue-50 shadow-sm transition-colors">Presencial</button>
+            <button onclick="setIndividualTuitionSelection('none')" class="px-2 py-1 rounded bg-white border border-zinc-200 text-xs font-medium text-zinc-400 hover:bg-zinc-100 shadow-sm transition-colors">Ninguno</button>
+            <div class="ml-auto relative w-32 md:w-48">
+                <input type="text" id="indTuitionSearch" placeholder="Buscar alumno..." class="w-full pl-7 pr-2 py-1 text-xs border border-zinc-200 rounded focus:border-zinc-900 bg-white outline-none" onkeyup="filterIndividualTuitionList()">
+                <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400 text-[10px]"></i>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-0">
+            <table class="w-full text-left text-sm" id="indTuitionTable">
+                <thead class="bg-zinc-50 text-zinc-500 sticky top-0 z-10 border-b border-zinc-100">
+                    <tr>
+                        <th class="px-6 py-3 w-10">
+                            <input type="checkbox" onchange="toggleAllIndTuition(this)" class="rounded border-zinc-300 text-zinc-900 focus:ring-0">
+                        </th>
+                        <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider">Alumno</th>
+                        <th class="px-6 py-3 font-medium uppercase text-xs tracking-wider text-center">Forma</th>
+                        <th class="px-6 py-3 w-32 font-medium uppercase text-xs tracking-wider text-right">Monto Sugerido</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-50">
+                    <?php foreach ($alumnos_config as $alum):
+                        $forma = strtolower($alum['forma'] ?? 'presencial');
+                        $montoSugerido = ($alum['colegiatura_base'] ?? 0) - ($alum['beca_monto'] ?? 0);
+                        if ($montoSugerido < 0) $montoSugerido = 0;
+                        ?>
+                        <tr class="hover:bg-zinc-50 transition-colors ind-tui-row" data-id="<?php echo $alum['alumno_id']; ?>" data-forma="<?php echo $forma; ?>" data-name="<?php echo strtolower(htmlspecialchars($alum['nombre'])); ?>">
+                            <td class="px-6 py-3">
+                                <input type="checkbox" class="ind-tui-check rounded border-zinc-300 text-zinc-900 focus:ring-0" onchange="updateIndTuitionCount()">
+                            </td>
+                            <td class="px-6 py-3 text-zinc-700 font-medium">
+                                <?php echo htmlspecialchars($alum['nombre']); ?>
+                            </td>
+                            <td class="px-6 py-3 text-center">
+                                <?php if ($forma === 'online'): ?>
+                                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Online</span>
+                                <?php else: ?>
+                                    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-wider">Presencial</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-6 py-3 text-right font-bold text-zinc-900 border-l border-zinc-100">
+                                <div class="flex items-center justify-end text-zinc-400 focus-within:text-zinc-900">
+                                    <span class="mr-1">$</span>
+                                    <input type="number" step="0.01" class="ind-tui-amount w-24 border-b border-zinc-200 py-1 focus:border-zinc-900 outline-none bg-transparent font-bold text-zinc-900 text-right" value="<?php echo $montoSugerido; ?>">
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-between items-center">
+            <div class="text-xs text-zinc-400">
+                <span id="indTuitionSelectedCount">0</span> alumnos seleccionados
+            </div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('individualTuitionModal').classList.add('hidden')" class="px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-zinc-800 transition-colors">Cancelar</button>
+                <button onclick="submitIndividualTuitionCharges()" class="px-6 py-2 bg-sky-600 text-white text-xs font-bold uppercase tracking-widest rounded hover:bg-sky-700 transition-colors shadow-lg">
+                    Generar Individuales
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- MODAL INSCRIPCIONES -->
@@ -2400,6 +2507,99 @@ if ($res_ciclos) {
         const formData = new FormData();
         formData.append('action', 'generate_registration_charges');
         formData.append('cycle', cycle);
+        formData.append('due_date', dueDate);
+        formData.append('data', JSON.stringify(selected));
+
+        fetch('../../back/admin_actions_finanzas.php', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    window.location.href = window.location.pathname + "?page=finanzas&tab=cobranza";
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            });
+    }
+
+    // --- INDIVIDUAL TUITION MODAL LOGIC ---
+    function openIndividualTuitionModal() {
+        const months = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const d = new Date();
+        document.getElementById('indTuitionMonth').value = months[d.getMonth()];
+        document.getElementById('individualTuitionModal').classList.remove('hidden');
+        document.querySelectorAll('.ind-tui-check').forEach(c => c.checked = false);
+        updateIndTuitionCount();
+    }
+
+    function toggleAllIndTuition(source) {
+        // Toggle only visible ones based on current filter
+        document.querySelectorAll('.ind-tui-row:not(.hidden) .ind-tui-check').forEach(cb => {
+            cb.checked = source.checked;
+        });
+        updateIndTuitionCount();
+    }
+
+    function filterIndividualTuitionList() {
+        const query = document.getElementById('indTuitionSearch').value.toLowerCase();
+        document.querySelectorAll('.ind-tui-row').forEach(row => {
+            if (row.dataset.name.includes(query)) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+                const cb = row.querySelector('.ind-tui-check');
+                if (cb.checked) { cb.checked = false; }
+            }
+        });
+        updateIndTuitionCount();
+    }
+
+    function setIndividualTuitionSelection(filter) {
+        document.querySelectorAll('.ind-tui-row:not(.hidden)').forEach(row => {
+            const cb = row.querySelector('.ind-tui-check');
+            if (filter === 'all') cb.checked = true;
+            else if (filter === 'none') cb.checked = false;
+            else if (filter === 'online') cb.checked = (row.dataset.forma === 'online');
+            else if (filter === 'presencial') cb.checked = (row.dataset.forma === 'presencial');
+        });
+        updateIndTuitionCount();
+    }
+
+    function updateIndTuitionCount() {
+        const count = document.querySelectorAll('.ind-tui-check:checked').length;
+        document.getElementById('indTuitionSelectedCount').innerText = count;
+    }
+
+    function submitIndividualTuitionCharges() {
+        const mes = document.getElementById('indTuitionMonth').value;
+        const anio = document.getElementById('indTuitionYear').value;
+        const dueDate = document.getElementById('indTuitionDueDate').value;
+
+        if (!mes || !anio || !dueDate) {
+            alert('Por favor especifica Mes, Año y Vencimiento.');
+            return;
+        }
+
+        const selected = [];
+        document.querySelectorAll('.ind-tui-check:checked').forEach(cb => {
+            const row = cb.closest('tr');
+            selected.push({
+                student_id: row.dataset.id,
+                amount: row.querySelector('.ind-tui-amount').value
+            });
+        });
+
+        if (selected.length === 0) {
+            alert('Selecciona al menos un alumno.');
+            return;
+        }
+
+        if (!confirm(`¿Generar ${selected.length} colegiaturas individuales de ${mes} ${anio}?\nEsto ignorará si tienen colegiatura de 0.`)) return;
+
+        const formData = new FormData();
+        formData.append('action', 'generate_individual_colegiaturas');
+        formData.append('mes', mes);
+        formData.append('anio', anio);
         formData.append('due_date', dueDate);
         formData.append('data', JSON.stringify(selected));
 

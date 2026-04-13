@@ -65,7 +65,7 @@ $materias_catalogo = $conn->query("SELECT * FROM Materias ORDER BY semestre, nom
 // g) Obtener las clases asignadas SOLO para el ciclo Y SUCURSAL seleccionados
 $clases_asignadas = [];
 if ($selected_ciclo_id && $selected_sucursal_id) {
-    $sql_clases = "SELECT c.id, c.materia_id, c.grupo, u.nombre_completo AS profesor_nombre 
+    $sql_clases = "SELECT c.id, c.materia_id, c.profesor_id, c.grupo, u.nombre_completo AS profesor_nombre 
                    FROM Clases c 
                    JOIN Usuarios u ON c.profesor_id = u.id 
                    WHERE c.ciclo_id = ? AND c.sucursal_id = ?";
@@ -169,6 +169,10 @@ if (!empty($lista_de_clases_ids)) {
                 Nueva Materia</h6>
             <form action="../../back/admin_actions_materias.php" method="POST" class="flex flex-col space-y-3">
                 <input type="hidden" name="action" value="create_materia">
+                <!-- Persistencia de filtros -->
+                <input type="hidden" name="ciclo_id" value="<?php echo $selected_ciclo_id; ?>">
+                <input type="hidden" name="sucursal_id" value="<?php echo $selected_sucursal_id; ?>">
+
                 <div class="flex space-x-2">
                     <input type="text"
                         class="w-full border-b border-zinc-200 py-1 text-sm focus:border-zinc-900 outline-none"
@@ -206,9 +210,9 @@ if (!empty($lista_de_clases_ids)) {
 <?php else: ?>
 
     <?php for ($i = 1; $i <= 6; $i++): ?>
-        <div class="mb-10">
+        <div class="mb-10" id="semestre_<?php echo $i; ?>">
             <h5
-                class="text-xs font-bold uppercase tracking-[0.2em] text-zinc-900 mb-6 border-b border-zinc-200 pb-2 inline-block">
+                class="text-xl font-bold uppercase tracking-[0.2em] text-zinc-900 mb-6 border-b border-zinc-200 pb-2 inline-block">
                 Semestre <?php echo $i; ?></h5>
 
             <!-- GRID CORREGIDO: MAX 3 COLUMNAS -->
@@ -230,6 +234,9 @@ if (!empty($lista_de_clases_ids)) {
                                     onsubmit="return confirm('¡ALERTA!\n¿Eliminar materia del catálogo?\nEsto borrará todas asignaciones históricas.');">
                                     <input type="hidden" name="action" value="delete_materia">
                                     <input type="hidden" name="materia_id" value="<?php echo $materia['id']; ?>">
+                                    <input type="hidden" name="ciclo_id" value="<?php echo $selected_ciclo_id; ?>">
+                                    <input type="hidden" name="sucursal_id" value="<?php echo $selected_sucursal_id; ?>">
+                                    <input type="hidden" name="semestre_anchor" value="<?php echo $i; ?>">
                                     <button type="submit" class="text-zinc-300 hover:text-rose-500 transition-colors pt-1">
                                         <i class="fas fa-times-circle"></i>
                                     </button>
@@ -270,18 +277,32 @@ if (!empty($lista_de_clases_ids)) {
                                                 </div>
                                             </div>
 
-                                            <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                            <div class="grid grid-cols-2 gap-1.5 flex-shrink-0">
                                                 <a href="dashboard.php?page=asignacion&clase_id=<?php echo $clase['id']; ?>"
                                                     class="w-7 h-7 flex items-center justify-center rounded bg-zinc-50 hover:bg-emerald-500 hover:text-white text-zinc-400 text-xs transition-colors border border-zinc-200"
                                                     title="Asignar Alumnos">
                                                     <i class="fas fa-user-plus"></i>
                                                 </a>
+                                                <a href="dashboard.php?page=reporte&clase_id=<?php echo $clase['id']; ?>"
+                                                    class="w-7 h-7 flex items-center justify-center rounded bg-zinc-50 hover:bg-indigo-500 hover:text-white text-zinc-400 text-xs transition-colors border border-zinc-200"
+                                                    title="Ver Calificaciones">
+                                                    <i class="fas fa-chart-line"></i>
+                                                </a>
+                                                <button type="button" onclick="openReasignarProfesorModal(<?php echo $clase['id']; ?>, <?php echo $clase['profesor_id']; ?>, '<?php echo htmlspecialchars(addslashes($materia['nombre_materia'])); ?>', '<?php echo htmlspecialchars(addslashes($clase['grupo'])); ?>')"
+                                                    class="w-7 h-7 flex items-center justify-center rounded bg-zinc-50 hover:bg-sky-500 hover:text-white text-zinc-400 text-xs transition-colors border border-zinc-200"
+                                                    title="Reasignar Profesor">
+                                                    <i class="fas fa-sync-alt"></i>
+                                                </button>
                                                 <form action="../../back/admin_actions_materias.php" method="POST"
                                                     onsubmit="return confirm('¿Quitar asignación?');">
                                                     <input type="hidden" name="action" value="delete_clase">
                                                     <input type="hidden" name="clase_id" value="<?php echo $clase['id']; ?>">
+                                                    <input type="hidden" name="ciclo_id" value="<?php echo $selected_ciclo_id; ?>">
+                                                    <input type="hidden" name="sucursal_id" value="<?php echo $selected_sucursal_id; ?>">
+                                                    <input type="hidden" name="semestre_anchor" value="<?php echo $i; ?>">
                                                     <button type="submit"
-                                                        class="w-7 h-7 flex items-center justify-center rounded bg-zinc-50 hover:bg-rose-500 hover:text-white text-zinc-400 text-xs transition-colors border border-zinc-200">
+                                                        class="w-7 h-7 flex items-center justify-center rounded bg-zinc-50 hover:bg-rose-500 hover:text-white text-zinc-400 text-xs transition-colors border border-zinc-200"
+                                                        title="Quitar Asignación">
                                                         <i class="fas fa-trash-alt"></i>
                                                     </button>
                                                 </form>
@@ -298,6 +319,7 @@ if (!empty($lista_de_clases_ids)) {
                                     <input type="hidden" name="materia_id" value="<?php echo $materia['id']; ?>">
                                     <input type="hidden" name="ciclo_id" value="<?php echo $selected_ciclo_id; ?>">
                                     <input type="hidden" name="sucursal_id" value="<?php echo $selected_sucursal_id; ?>">
+                                    <input type="hidden" name="semestre_anchor" value="<?php echo $i; ?>">
 
                                     <!-- Layout Responsive: Stacked on default, Row on large if space permits -->
                                     <div class="flex flex-col xl:flex-row gap-2">
@@ -346,3 +368,101 @@ if (!empty($lista_de_clases_ids)) {
     <?php endfor; ?>
 
 <?php endif; ?>
+
+<!-- MODAL DE REASIGNACIÓN DE PROFESOR -->
+<div id="reassignProfModal" class="fixed inset-0 z-[60] hidden bg-zinc-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+        <div class="px-6 py-5 border-b border-zinc-100 bg-zinc-50 flex justify-between items-center">
+            <div>
+                <h3 class="font-serif italic text-xl text-zinc-900">Reasignar Profesor</h3>
+                <p class="text-xs text-zinc-400 mt-1 font-light" id="reassignLabel">Materia XYZ - Grupo A</p>
+            </div>
+            <button onclick="closeReasignarProfesorModal()" class="text-zinc-400 hover:text-rose-500"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <form id="reassignProfForm" onsubmit="submitReasignarProfesor(event)" class="px-6 py-4">
+            <input type="hidden" id="reassignClaseId" name="clase_id">
+            
+            <div class="mb-4 bg-sky-50 border border-sky-200 p-3 rounded flex items-start">
+                <i class="fas fa-info-circle text-sky-500 mt-0.5 mr-2"></i>
+                <p class="text-[10px] uppercase tracking-wider font-bold text-sky-800">Nota: Al cambiar de profesor, todas las calificaciones y actividades previamente evaluadas se mantendrán intactas en el sistema. El nuevo profesor heredará el grupo tal como está.</p>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">Nuevo Profesor a Cargo *</label>
+                <select id="reassignProfesorId" name="profesor_id" class="w-full px-3 py-2 border border-zinc-200 rounded text-sm focus:border-zinc-900 outline-none" required>
+                    <option value="">Seleccione Profesor...</option>
+                    <?php foreach ($profesores as $profesor): ?>
+                        <option value="<?php echo $profesor['id']; ?>"><?php echo htmlspecialchars($profesor['nombre_completo']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-zinc-100">
+                <button type="button" onclick="closeReasignarProfesorModal()" class="px-4 py-2 text-xs font-bold uppercase tracking-widest text-zinc-500 rounded hover:text-zinc-900 transition-colors">Cancelar</button>
+                <button type="submit" id="reassignSubmitBtn" class="px-6 py-2 bg-zinc-900 text-white font-bold text-xs uppercase tracking-widest rounded shadow-sm hover:bg-zinc-800 transition">Confirmar Cambio</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openReasignarProfesorModal(claseId, currentProfId, materiaObj, grupoVal) {
+        document.getElementById('reassignClaseId').value = claseId;
+        document.getElementById('reassignProfesorId').value = currentProfId;
+        document.getElementById('reassignLabel').innerText = materiaObj + ' - Grupo ' + grupoVal;
+        document.getElementById('reassignProfModal').classList.remove('hidden');
+    }
+
+    function closeReasignarProfesorModal() {
+        document.getElementById('reassignProfModal').classList.add('hidden');
+    }
+
+    function submitReasignarProfesor(e) {
+        e.preventDefault();
+        
+        let newProfSelect = document.getElementById('reassignProfesorId');
+        let newProfName = newProfSelect.options[newProfSelect.selectedIndex].text;
+
+        Swal.fire({
+            title: '¿Confirmar Reasignación?',
+            text: `¿Estás seguro de asignar esta materia a ${newProfName}?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#ef4444',
+            confirmButtonText: 'Sí, Reasignar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('reassignSubmitBtn').disabled = true;
+                document.getElementById('reassignSubmitBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Procesando...';
+
+                let formData = new FormData(document.getElementById('reassignProfForm'));
+                formData.append('action', 'reassign_profesor');
+
+                fetch('../../back/admin_actions_materias.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if(data.success) {
+                        Swal.fire('¡Transferido!', data.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error', data.message, 'error');
+                        document.getElementById('reassignSubmitBtn').disabled = false;
+                        document.getElementById('reassignSubmitBtn').innerHTML = 'Confirmar Cambio';
+                    }
+                })
+                .catch(err => {
+                    Swal.fire('Error Crítico', 'Ha ocurrido un error contactando al servidor.', 'error');
+                    document.getElementById('reassignSubmitBtn').disabled = false;
+                    document.getElementById('reassignSubmitBtn').innerHTML = 'Confirmar Cambio';
+                });
+            }
+        });
+    }
+</script>

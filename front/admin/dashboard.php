@@ -14,6 +14,8 @@ if ($_SESSION['perfil_id'] != 1) {
 }
 
 $page = isset($_GET['page']) ? $_GET['page'] : 'main';
+
+require_once '../../back/db_connect.php'; // Restore DB connection for all admin pages
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -45,6 +47,10 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
         rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Admin AJAX -->
+    <script src="../../front/assets/js/admin_ajax.js"></script>
 
     <style>
         body {
@@ -89,15 +95,27 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
             <?php
             $nav_items = [
                 'main' => ['icon' => 'fa-tachometer-alt', 'label' => 'Dashboard'],
+                'logs' => ['icon' => 'fa-clipboard-list', 'label' => 'Bitácora'], // NEW
+                'mensajes' => ['icon' => 'fa-envelope', 'label' => 'Mensajería'], // RE-ADDED
                 'finanzas' => ['icon' => 'fa-wallet', 'label' => 'Finanzas & Cobros'],
-                'boletos' => ['icon' => 'fa-ticket-alt', 'label' => 'Gestión de Boletos'], // NUEVO MODULO
+                'boletos' => ['icon' => 'fa-ticket-alt', 'label' => 'Gestión de Boletos'],
                 'usuarios' => ['icon' => 'fa-users', 'label' => 'Gestor de Usuarios'],
                 'ciclos' => ['icon' => 'fa-calendar-alt', 'label' => 'Gestión de Ciclos'],
                 'sucursales' => ['icon' => 'fa-building', 'label' => 'Gestión de Sucursales'],
                 'materias' => ['icon' => 'fa-book', 'label' => 'Gestión de Materias'],
+                'materias_reprobadas' => ['icon' => 'fa-exclamation-triangle min-w-[20px] text-center text-rose-500', 'label' => 'Auditoría Reprobados'],
                 'asignacion' => ['icon' => 'fa-user-plus', 'label' => 'Asignación de Alumnos'],
                 'alumno_setup' => ['icon' => 'fa-folder-open', 'label' => 'Documentación Alumnos']
             ];
+
+            // Add Backups only for Super Admin
+            if ($_SESSION['perfil_id'] == 1) {
+                $nav_items['backups'] = ['icon' => 'fa-database', 'label' => 'Respaldos y BD'];
+                $nav_items['reportes_csv'] = ['icon' => 'fa-file-csv text-emerald-500', 'label' => 'Reportes (CSV)'];
+            }
+
+            // Fetch Unread Count - REMOVED
+            $unread_count = 0;
 
             foreach ($nav_items as $key => $item):
                 $active = ($page == $key);
@@ -105,10 +123,18 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
                 $iconColor = $active ? 'text-amber-500' : 'text-zinc-600 group-hover:text-amber-500';
                 ?>
                 <a href="dashboard.php?page=<?php echo $key; ?>"
-                    class="group flex items-center px-4 py-3 text-sm font-medium transition-all duration-200 <?php echo $activeClass; ?>">
-                    <i
-                        class="fas <?php echo $item['icon']; ?> w-6 text-center text-lg mr-3 <?php echo $iconColor; ?> transition-colors"></i>
-                    <span><?php echo $item['label']; ?></span>
+                    class="group flex items-center justify-between px-4 py-3 text-sm font-medium transition-all duration-200 <?php echo $activeClass; ?>">
+                    <div class="flex items-center">
+                        <i
+                            class="fas <?php echo $item['icon']; ?> w-6 text-center text-lg mr-3 <?php echo $iconColor; ?> transition-colors"></i>
+                        <span><?php echo $item['label']; ?></span>
+                    </div>
+                    <?php if (false): ?>
+                        <span
+                            class="bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg pulse-animation">
+                            0
+                        </span>
+                    <?php endif; ?>
                 </a>
             <?php endforeach; ?>
 
@@ -125,7 +151,9 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
                     <p class="text-xs font-bold text-white truncate">
                         <?php echo htmlspecialchars($_SESSION['user_name']); ?>
                     </p>
-                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest">Administrador</p>
+                    <p class="text-[10px] text-zinc-500 uppercase tracking-widest">
+                        <?php echo $_SESSION['perfil_id'] == 1 ? 'Administrador' : 'Ayudante'; ?>
+                    </p>
                 </div>
             </div>
             <a href="../../back/logout.php"
@@ -148,7 +176,7 @@ $page = isset($_GET['page']) ? $_GET['page'] : 'main';
         <!-- Dynamic Content -->
         <div class="flex-1 overflow-y-auto p-8 md:p-12 relative">
             <?php
-            $allowed_pages = ['main', 'finanzas', 'boletos', 'usuarios', 'ciclos', 'sucursales', 'materias', 'asignacion', 'alumno_setup'];
+            $allowed_pages = ['main', 'finanzas', 'boletos', 'usuarios', 'mensajes', 'backups', 'ciclos', 'sucursales', 'materias', 'asignacion', 'alumno_setup', 'logs', 'reporte', 'alumno_clases', 'contacto_estudiante', 'materias_reprobadas', 'reportes_csv'];
             if (in_array($page, $allowed_pages)) {
                 include 'body_' . $page . '.php';
             } else {
