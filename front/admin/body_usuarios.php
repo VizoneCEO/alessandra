@@ -294,6 +294,13 @@ while ($acc = $result_accounts->fetch_assoc()) {
                                 <?php endif; ?>
 
                                 <button
+                                    onclick="openEditCurpModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['curp']); ?>')"
+                                    class="text-teal-600 hover:text-teal-800 cursor-pointer transition-colors"
+                                    title="Editar CURP">
+                                    <i class="fas fa-id-card"></i>
+                                </button>
+
+                                <button
                                     onclick="openEditModal('<?php echo $row['id']; ?>', '<?php echo htmlspecialchars($row['nombre_completo']); ?>', '<?php echo $row['perfil_id']; ?>', '<?php echo $row['forma'] ?? 'presencial'; ?>')"
                                     class="text-amber-600 hover:text-amber-800 cursor-pointer transition-colors"
                                     title="Editar">
@@ -389,6 +396,42 @@ while ($acc = $result_accounts->fetch_assoc()) {
                 <button type="submit"
                     class="px-4 py-2 bg-zinc-900 text-white text-xs font-bold uppercase tracking-wider rounded hover:bg-zinc-800 transition-colors">Guardar
                     Cambios</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Edit CURP -->
+<div id="editCurpModal"
+    class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div
+        class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 opacity-100">
+        <form id="formEditCurp">
+            <div class="px-6 py-4 border-b border-zinc-100 flex justify-between items-center bg-zinc-50">
+                <h5 class="font-bold text-zinc-900">Editar CURP</h5>
+                <button type="button" onclick="closeEditCurpModal()"
+                    class="text-zinc-400 hover:text-rose-500 transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="edit_curp_user_id" name="usuario_id">
+
+                <div>
+                    <label for="edit_curp_input"
+                        class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Nuevo CURP</label>
+                    <input type="text"
+                        class="w-full border border-zinc-200 rounded px-3 py-2 text-sm focus:border-zinc-900 outline-none uppercase"
+                        id="edit_curp_input" name="curp" required maxlength="18" minlength="18" style="text-transform: uppercase;">
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-zinc-50 flex justify-end gap-3">
+                <button type="button" onclick="closeEditCurpModal()"
+                    class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-zinc-500 hover:text-zinc-800 transition-colors">Cancelar</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-zinc-900 text-white text-xs font-bold uppercase tracking-wider rounded hover:bg-zinc-800 transition-colors">
+                    Guardar CURP
+                </button>
             </div>
         </form>
     </div>
@@ -506,6 +549,58 @@ while ($acc = $result_accounts->fetch_assoc()) {
     function closeAssignModal() {
         document.getElementById('assignAccountModal').classList.add('hidden');
     }
+    function openEditCurpModal(id, curp) {
+        document.getElementById('edit_curp_user_id').value = id;
+        document.getElementById('edit_curp_input').value = curp;
+        document.getElementById('editCurpModal').classList.remove('hidden');
+    }
+
+    function closeEditCurpModal() {
+        document.getElementById('editCurpModal').classList.add('hidden');
+    }
+
+    document.getElementById('formEditCurp').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const userId = document.getElementById('edit_curp_user_id').value;
+        const curp = document.getElementById('edit_curp_input').value.toUpperCase();
+        
+        const formData = new FormData();
+        formData.append('usuario_id', userId);
+        formData.append('curp', curp);
+        
+        fetch('../../back/update_curp.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || 'CURP actualizado correctamente');
+                
+                // Buscar el botón que abrió el modal por su onclick y actualizar el DOM
+                const btns = document.querySelectorAll(`button[onclick^="openEditCurpModal('${userId}'"]`);
+                if (btns.length > 0) {
+                    const row = btns[0].closest('tr');
+                    if (row) {
+                        const curpCell = row.cells[1];
+                        if (curpCell) {
+                            curpCell.textContent = curp;
+                        }
+                        btns[0].setAttribute('onclick', `openEditCurpModal('${userId}', '${curp}')`);
+                    }
+                }
+                closeEditCurpModal();
+            } else {
+                alert(data.message || 'Error al actualizar el CURP');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ocurrió un error en la solicitud');
+        });
+    });
+
     // Logic for Modal
     function openEditModal(id, name, profileId, forma) {
         document.getElementById('edit_user_id').value = id;
