@@ -1574,6 +1574,33 @@ if ($res_ciclos) {
                     class="px-4 py-2 bg-zinc-900 text-white rounded text-xs font-bold uppercase">Crear</button>
             </div>
         </div>
+</div>
+</div>
+
+<!-- MODAL IMAGEN DE EVENTO -->
+<div id="eventImageModal"
+    class="fixed inset-0 z-[70] hidden bg-zinc-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in-up">
+        <div class="px-6 py-4 border-b border-zinc-100 bg-zinc-50 flex justify-between items-center">
+            <h3 class="font-serif italic text-lg text-zinc-900">Diseño del Boleto</h3>
+            <button onclick="document.getElementById('eventImageModal').classList.add('hidden')" class="text-zinc-400 hover:text-zinc-900">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-6 flex flex-col items-center">
+            <div class="w-full h-48 bg-zinc-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden border border-zinc-200 relative">
+                <span id="noEventImageText" class="text-zinc-400 text-xs uppercase tracking-widest font-bold">Sin imagen</span>
+                <img id="currentEventImage" src="" class="max-w-full max-h-full object-contain absolute hidden">
+            </div>
+            
+            <input type="file" id="eventImageModalInput" accept="image/jpeg, image/png, image/jpg" class="hidden">
+            <input type="hidden" id="eventImageModalId">
+            
+            <button onclick="document.getElementById('eventImageModalInput').click()"
+                class="w-full py-2 bg-zinc-900 text-white rounded text-xs font-bold uppercase tracking-widest hover:bg-zinc-800 transition-colors shadow-lg">
+                Cambiar Imagen
+            </button>
+        </div>
     </div>
 </div>
 
@@ -2258,6 +2285,12 @@ if ($res_ciclos) {
                 ? `<button onclick="closeEvent(${ev.id})" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:border-zinc-900 hover:text-zinc-900 shadow-sm transition-all" title="Cerrar Evento (Terminar)"><i class="fas fa-flag-checkered"></i></button>`
                 : `<button disabled class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-300 cursor-not-allowed"><i class="fas fa-flag-checkered"></i></button>`;
 
+            const uploadBtn = `
+                <button onclick="openEventImageModal(${ev.id}, '${ev.imagen_boleto || ''}')" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:border-blue-500 hover:text-blue-500 shadow-sm transition-all" title="Diseño del Boleto">
+                    <i class="fas fa-image"></i>
+                </button>
+            `;
+
             html += `
                 <tr class="border-b border-zinc-100 last:border-0 transition-colors ${rowClass}">
                     <td class="px-6 py-4 text-center text-xs text-zinc-400 font-mono">${ev.id}</td>
@@ -2274,6 +2307,7 @@ if ($res_ciclos) {
                         ${statusBadge}
                     </td>
                     <td class="px-6 py-4 text-right flex justify-end gap-2">
+                        ${uploadBtn}
                         ${closeBtn}
                         <button onclick="deleteEvent(${ev.id})" class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:border-rose-500 hover:text-rose-500 shadow-sm transition-all" title="Eliminar Evento">
                             <i class="fas fa-trash-alt"></i>
@@ -2346,6 +2380,81 @@ if ($res_ciclos) {
                     alert('Error: ' + data.message);
                 }
             });
+    }
+
+    function openEventImageModal(id, currentImage) {
+        document.getElementById('eventImageModalId').value = id;
+        
+        const img = document.getElementById('currentEventImage');
+        const text = document.getElementById('noEventImageText');
+        
+        if (currentImage && currentImage !== 'null' && currentImage !== 'undefined') {
+            img.src = `../multimedia/${currentImage}`;
+            img.classList.remove('hidden');
+            text.classList.add('hidden');
+        } else {
+            img.src = '';
+            img.classList.add('hidden');
+            text.classList.remove('hidden');
+        }
+        
+        document.getElementById('eventImageModalInput').value = '';
+        document.getElementById('eventImageModal').classList.remove('hidden');
+    }
+
+    // Bind event for the modal file input
+    document.addEventListener('DOMContentLoaded', () => {
+        const fileInput = document.getElementById('eventImageModalInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                const eventId = document.getElementById('eventImageModalId').value;
+                if (!eventId) return;
+                uploadEventImage(eventId, this);
+            });
+        }
+    });
+
+    function uploadEventImage(eventId, input) {
+        if (!input.files || input.files.length === 0) return;
+        
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('action', 'upload_event_image');
+        formData.append('event_id', eventId);
+        formData.append('image', file);
+
+        fetch('../../back/admin_actions_finanzas.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('¡Éxito!', 'La imagen del evento ha sido actualizada.', 'success');
+                } else {
+                    alert('La imagen del evento ha sido actualizada.');
+                }
+                document.getElementById('eventImageModal').classList.add('hidden');
+                loadEventsTable();
+            } else {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Error', data.message || 'Error al subir la imagen', 'error');
+                } else {
+                    alert('Error: ' + (data.message || 'Error al subir la imagen'));
+                }
+            }
+            input.value = '';
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Error', 'Hubo un problema de conexión.', 'error');
+            } else {
+                alert('Hubo un problema de conexión.');
+            }
+            input.value = '';
+        });
     }
 
     function deleteEvent(id) {

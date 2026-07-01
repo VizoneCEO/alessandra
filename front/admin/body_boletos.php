@@ -364,12 +364,12 @@ if ($res_hist) {
             <td class="px-6 py-4 text-right text-zinc-500 font-mono text-xs">
                 ${t.fecha_emision || '--'}
                 <div class="flex justify-end gap-2 mt-2">
-                <button onclick="viewQR('${t.id}', '${t.alumno}', '${t.folio_asiento}', '${tipo}', '${guestLabel}')"
+                <button onclick="viewQR('${t.id}', '${t.alumno}', '${t.folio_asiento}', '${tipo}', '${guestLabel}', '${t.imagen_boleto || ''}')"
                     class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-zinc-900 hover:border-zinc-900 transition-all shadow-sm flex items-center justify-center"
                     title="Ver QR de Acceso">
                     <i class="fas fa-eye"></i>
                 </button>
-                <button onclick="downloadTicket('${t.id}', '${t.alumno}', '${t.folio_asiento}', '${tipo}', '${guestLabel}')"
+                <button onclick="downloadTicket('${t.id}', '${t.alumno}', '${t.folio_asiento}', '${tipo}', '${guestLabel}', '${t.imagen_boleto || ''}')"
                     class="w-8 h-8 rounded-full bg-white border border-zinc-200 text-zinc-400 hover:text-emerald-600 hover:border-emerald-600 transition-all shadow-sm flex items-center justify-center"
                     title="Descargar Boleto">
                     <i class="fas fa-download"></i>
@@ -463,10 +463,11 @@ if ($res_hist) {
         });
     }
 
-    function viewQR(id, name, folio, tipo, guestLabel) {
+    function viewQR(id, name, folio, tipo, guestLabel, imagenBoleto) {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=TICKET:${id}`;
         const folioText = folio > 0 ? '#' + String(folio).padStart(4, '0') : '--';
         const typeLabel = tipo.toUpperCase();
+        const imagePath = (imagenBoleto && imagenBoleto !== 'null' && imagenBoleto !== 'undefined') ? `../multimedia/${imagenBoleto}` : '';
 
         let modal = document.getElementById('qrModal');
         if (!modal) {
@@ -476,8 +477,9 @@ if ($res_hist) {
             modal.innerHTML = `
                 <div class="bg-white rounded-xl shadow-2xl flex overflow-hidden max-w-3xl w-full mx-4 animate-fade-in-up" style="min-height: 400px;">
                     <!-- Left Image Side -->
-                    <div class="w-1/2 bg-zinc-900 relative">
-                        <img src="../multimedia/boleto.jpeg" class="w-full h-full object-cover opacity-90 absolute inset-0">
+                    <div class="w-1/2 bg-zinc-900 relative flex items-center justify-center">
+                        <span id="qrNoImageText" class="text-zinc-500 text-xs uppercase tracking-widest font-bold hidden">Sin diseño</span>
+                        <img id="qrEventImage" src="" class="w-full h-full object-cover opacity-90 absolute inset-0 hidden">
                     </div>
                     
                     <!-- Right Content Side -->
@@ -522,13 +524,27 @@ if ($res_hist) {
         document.getElementById('qrType').innerText = typeLabel;
         document.getElementById('qrGuestLabel').innerText = guestLabel || '';
         document.getElementById('qrImage').src = qrUrl;
+        
+        const qrEventImage = document.getElementById('qrEventImage');
+        const qrNoImageText = document.getElementById('qrNoImageText');
+        if (imagePath) {
+            qrEventImage.src = imagePath;
+            qrEventImage.classList.remove('hidden');
+            qrNoImageText.classList.add('hidden');
+        } else {
+            qrEventImage.src = '';
+            qrEventImage.classList.add('hidden');
+            qrNoImageText.classList.remove('hidden');
+        }
+        
         modal.classList.remove('hidden');
     }
 
-    function downloadTicket(id, name, folio, tipo, guestLabel) {
+    function downloadTicket(id, name, folio, tipo, guestLabel, imagenBoleto) {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=TICKET:${id}`;
         const folioText = folio > 0 ? '#' + String(folio).padStart(4, '0') : '--';
         const typeLabel = tipo.toUpperCase();
+        const imagePath = (imagenBoleto && imagenBoleto !== 'null' && imagenBoleto !== 'undefined') ? `../multimedia/${imagenBoleto}` : '';
 
         const tempDiv = document.createElement('div');
         tempDiv.style.position = 'fixed';
@@ -542,9 +558,9 @@ if ($res_hist) {
 
         // Styles for PDF/Image Generation
         tempDiv.innerHTML = `
-            <div style="width: 50%; height: 100%; position: relative; overflow: hidden;">
+            <div style="width: 50%; height: 100%; position: relative; overflow: hidden; background-color: #18181b; display: flex; align-items: center; justify-content: center;">
                 <!-- Use exact dimensions or allow stretch if container matches ratio -->
-                <img src="../multimedia/boleto.jpeg" style="width: 100%; height: 100%; object-fit: fill;"> 
+                ${imagePath ? `<img src="${imagePath}" style="width: 100%; height: 100%; object-fit: fill;">` : `<span style="color: #71717a; font-family: sans-serif; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">Sin diseño</span>`}
             </div>
             <div style="width: 50%; height: 100%; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: white; font-family: 'Times New Roman', serif;">
                 <img src="../multimedia/logoA.png" style="width: 50px; margin-bottom: 20px; opacity: 0.8;">

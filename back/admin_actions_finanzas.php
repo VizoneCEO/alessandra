@@ -123,7 +123,7 @@ if ($action === 'fetch_config') {
     $event_id = isset($_POST['event_id']) ? intval($_POST['event_id']) : 0;
     $mode = $_POST['mode'] ?? 'active'; // active, history, all
 
-    $sql = "SELECT b.*, e.nombre as evento, u.nombre_completo as alumno, u.curp, u.perfil_id, e.activo as evento_activo, c.concepto as cargo_concepto
+    $sql = "SELECT b.*, e.nombre as evento, e.imagen_boleto, u.nombre_completo as alumno, u.curp, u.perfil_id, e.activo as evento_activo, c.concepto as cargo_concepto
             FROM finanzas_boletos b 
             JOIN finanzas_eventos e ON b.evento_id = e.id 
             JOIN Usuarios u ON b.alumno_id = u.id
@@ -1048,6 +1048,34 @@ if ($action === 'fetch_config') {
     }
     fclose($output);
     exit();
+
+} elseif ($action === 'upload_event_image') {
+    $event_id = $_POST['event_id'] ?? 0;
+    if (!$event_id || !isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+        jsonResponse(false, 'Datos incompletos o error de subida.');
+    }
+
+    $file = $_FILES['image'];
+    $allowed_types = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!in_array($file['type'], $allowed_types)) {
+        jsonResponse(false, 'Formato no permitido. Solo JPG/PNG.');
+    }
+
+    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filename = 'boleto_evento_' . $event_id . '_' . time() . '.' . $ext;
+    $dest_path = __DIR__ . '/../front/multimedia/' . $filename;
+    
+    if (move_uploaded_file($file['tmp_name'], $dest_path)) {
+        $stmt = $conn->prepare("UPDATE finanzas_eventos SET imagen_boleto = ? WHERE id = ?");
+        $stmt->bind_param("si", $filename, $event_id);
+        if ($stmt->execute()) {
+            jsonResponse(true, 'Imagen subida correctamente.');
+        } else {
+            jsonResponse(false, 'Error al actualizar base de datos.');
+        }
+    } else {
+        jsonResponse(false, 'Error al guardar la imagen en el servidor.');
+    }
 
 } else {
     jsonResponse(false, 'Invalid Action: (' . $action . ')');
