@@ -22,7 +22,7 @@ $clase_details = $conn->query($sql_clase_details)->fetch_assoc();
 
 
 // b) Obtener alumnos YA INSCRITOS en esta clase
-$sql_inscritos = "SELECT i.id as inscripcion_id, u.id as alumno_id, u.nombre_completo, u.curp
+$sql_inscritos = "SELECT i.id as inscripcion_id, u.id as alumno_id, u.nombre_completo, u.curp, u.estado
                   FROM Inscripciones i
                   JOIN Usuarios u ON i.alumno_id = u.id
                   WHERE i.clase_id = $clase_id AND u.perfil_id = 3
@@ -51,6 +51,14 @@ if (!empty($ids_excluidos)) {
 }
 $sql_disponibles .= " ORDER BY nombre_completo";
 $alumnos_disponibles = $conn->query($sql_disponibles)->fetch_all(MYSQLI_ASSOC);
+
+// d) Obtener los grupos existentes en el mismo ciclo para la opción de importar
+$sql_grupos = "SELECT DISTINCT grupo FROM Clases WHERE ciclo_id = $ciclo_id AND grupo IS NOT NULL AND grupo != '' ORDER BY grupo";
+$res_grupos = $conn->query($sql_grupos);
+$grupos_existentes = [];
+while ($row = $res_grupos->fetch_assoc()) {
+    $grupos_existentes[] = $row['grupo'];
+}
 
 ?>
 
@@ -121,19 +129,21 @@ if (isset($_SESSION['message'])) {
                 </div>
             <?php else: ?>
                 <?php foreach ($alumnos_inscritos as $alumno): ?>
+                    <?php $inactivo = ($alumno['estado'] == 'inactivo'); ?>
                     <div
-                        class="group flex items-center justify-between p-3 rounded-lg border border-zinc-100 hover:border-rose-200 hover:bg-rose-50 transition-all">
+                        class="group flex items-center justify-between p-3 rounded-lg border <?php echo $inactivo ? 'border-rose-200 bg-rose-50/50 hover:bg-rose-100' : 'border-zinc-100 hover:border-rose-200 hover:bg-rose-50'; ?> transition-all">
                         <div class="flex items-center gap-3">
                             <div
-                                class="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs font-bold">
+                                class="w-8 h-8 rounded-full <?php echo $inactivo ? 'bg-rose-100 text-rose-600' : 'bg-emerald-50 text-emerald-600'; ?> flex items-center justify-center text-xs font-bold">
                                 <i class="fas fa-user"></i>
                             </div>
                             <div>
-                                <p class="text-sm font-bold text-zinc-900 leading-none">
+                                <p class="text-sm font-bold <?php echo $inactivo ? 'text-rose-700' : 'text-zinc-900'; ?> leading-none">
                                     <?php echo htmlspecialchars($alumno['nombre_completo']); ?>
                                 </p>
-                                <p class="text-[10px] text-zinc-400 font-mono mt-1">
+                                <p class="text-[10px] <?php echo $inactivo ? 'text-rose-500' : 'text-zinc-400'; ?> font-mono mt-1">
                                     <?php echo htmlspecialchars($alumno['curp']); ?>
+                                    <?php if ($inactivo) echo ' - INACTIVO'; ?>
                                 </p>
                             </div>
                         </div>
@@ -165,6 +175,23 @@ if (isset($_SESSION['message'])) {
                 <span
                     class="bg-zinc-100 text-zinc-600 text-xs font-bold px-2 py-1 rounded-full"><?php echo count($alumnos_disponibles); ?></span>
             </div>
+
+            <?php if (!empty($grupos_existentes)): ?>
+            <form action="../../back/admin_actions_asignacion.php" method="POST" class="mb-3 flex gap-2">
+                <input type="hidden" name="action" value="import_group">
+                <input type="hidden" name="clase_id" value="<?php echo $clase_id; ?>">
+                <select name="source_grupo" class="flex-1 text-xs border border-zinc-200 rounded py-2 px-3 focus:border-zinc-800 focus:outline-none bg-white transition-colors" required>
+                    <option value="">-- Importar alumnos de grupo --</option>
+                    <?php foreach ($grupos_existentes as $g): ?>
+                        <option value="<?php echo htmlspecialchars($g); ?>">Grupo <?php echo htmlspecialchars($g); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button type="submit" class="bg-zinc-800 text-white text-xs px-3 py-2 rounded hover:bg-zinc-700 transition-colors shadow-sm whitespace-nowrap">
+                    <i class="fas fa-file-import mr-1"></i> Traer
+                </button>
+            </form>
+            <?php endif; ?>
+
             <!-- QUICK SEARCH -->
             <div class="relative">
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400 text-xs"></i>

@@ -107,7 +107,7 @@ if ($clase_seleccionada_id) {
     }
 
     // b) Obtenemos los alumnos inscritos
-    $alumnos = $conn->query("SELECT i.id as inscripcion_id, u.nombre_completo FROM Inscripciones i JOIN Usuarios u ON i.alumno_id = u.id WHERE i.clase_id = $clase_seleccionada_id ORDER BY u.nombre_completo")->fetch_all(MYSQLI_ASSOC);
+    $alumnos = $conn->query("SELECT i.id as inscripcion_id, u.nombre_completo FROM Inscripciones i JOIN Usuarios u ON i.alumno_id = u.id WHERE i.clase_id = $clase_seleccionada_id AND u.estado = 'activo' ORDER BY u.nombre_completo")->fetch_all(MYSQLI_ASSOC);
 
     // c) Por cada alumno, llamamos a la función de cálculo
     foreach ($alumnos as $alumno) {

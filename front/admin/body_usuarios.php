@@ -208,8 +208,11 @@ while ($acc = $result_accounts->fetch_assoc()) {
                     class="px-3 py-2 text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-50 transition-colors border-r border-zinc-200"
                     data-filter="profesor">Profesor</button>
                 <button type="button"
-                    class="px-3 py-2 text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-50 transition-colors"
+                    class="px-3 py-2 text-xs font-medium bg-white text-zinc-600 hover:bg-zinc-50 transition-colors border-r border-zinc-200"
                     data-filter="alumno">Alumno</button>
+                <button type="button"
+                    class="px-3 py-2 text-xs font-medium bg-white text-rose-600 hover:bg-rose-50 transition-colors"
+                    data-filter="inactivos">Inactivos</button>
             </div>
         </div>
     </div>
@@ -625,11 +628,22 @@ while ($acc = $result_accounts->fetch_assoc()) {
     filterButtons.forEach(btn => {
         btn.addEventListener('click', function () {
             filterButtons.forEach(b => {
-                b.classList.remove('bg-zinc-900', 'text-white');
-                b.classList.add('bg-white', 'text-zinc-600');
+                b.classList.remove('bg-zinc-900', 'text-white', 'bg-rose-600');
+                
+                // If it's the "inactivos" button, it has special colors when inactive
+                if (b.getAttribute('data-filter') === 'inactivos') {
+                    b.classList.add('bg-white', 'text-rose-600');
+                } else {
+                    b.classList.add('bg-white', 'text-zinc-600');
+                }
             });
-            this.classList.remove('bg-white', 'text-zinc-600');
-            this.classList.add('bg-zinc-900', 'text-white');
+            this.classList.remove('bg-white', 'text-zinc-600', 'text-rose-600');
+            
+            if (this.getAttribute('data-filter') === 'inactivos') {
+                this.classList.add('bg-rose-600', 'text-white');
+            } else {
+                this.classList.add('bg-zinc-900', 'text-white');
+            }
 
             currentProfileFilter = this.getAttribute('data-filter');
             filterTable();
@@ -648,20 +662,33 @@ while ($acc = $result_accounts->fetch_assoc()) {
             const nameCol = row.getElementsByTagName('td')[0];
             const curpCol = row.getElementsByTagName('td')[1];
             const profileCol = row.getElementsByTagName('td')[2];
+            const statusCol = row.getElementsByTagName('td')[5];
 
-            if (!nameCol || !curpCol || !profileCol) continue;
+            if (!nameCol || !curpCol || !profileCol || !statusCol) continue;
 
             const nameText = nameCol.textContent || nameCol.innerText;
             const curpText = curpCol.textContent || curpCol.innerText;
             const profileText = (profileCol.textContent || profileCol.innerText).trim().toLowerCase();
+            const statusText = (statusCol.textContent || statusCol.innerText).trim().toLowerCase();
 
             const textMatch = (nameText.toUpperCase().indexOf(searchText) > -1) ||
                 (curpText.toUpperCase().indexOf(searchText) > -1);
 
-            const profileMatch = (currentProfileFilter === 'Todos') ||
-                (profileText.includes(currentProfileFilter.toLowerCase()));
+            let filterMatch = false;
 
-            if (textMatch && profileMatch) {
+            if (currentProfileFilter === 'inactivos') {
+                filterMatch = (statusText === 'inactivo');
+            } else {
+                if (statusText === 'activo') {
+                    if (currentProfileFilter === 'Todos') {
+                        filterMatch = true;
+                    } else {
+                        filterMatch = profileText.includes(currentProfileFilter.toLowerCase());
+                    }
+                }
+            }
+
+            if (textMatch && filterMatch) {
                 row.style.display = "";
                 visibleCount++;
             } else {
@@ -675,4 +702,7 @@ while ($acc = $result_accounts->fetch_assoc()) {
     }
 
     searchInput.addEventListener('keyup', filterTable);
+
+    // Initial filtering on page load
+    filterTable();
 </script>

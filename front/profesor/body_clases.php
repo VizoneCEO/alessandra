@@ -50,7 +50,7 @@ if ($clase_seleccionada_id) {
         $categorias[$cat['nombre_categoria']] = $cat;
     }
 
-    $alumnos = $conn->query("SELECT i.id as inscripcion_id, u.nombre_completo FROM Inscripciones i JOIN Usuarios u ON i.alumno_id = u.id WHERE i.clase_id = $clase_seleccionada_id ORDER BY u.nombre_completo")->fetch_all(MYSQLI_ASSOC);
+    $alumnos = $conn->query("SELECT i.id as inscripcion_id, u.nombre_completo FROM Inscripciones i JOIN Usuarios u ON i.alumno_id = u.id WHERE i.clase_id = $clase_seleccionada_id AND u.estado = 'activo' ORDER BY u.nombre_completo")->fetch_all(MYSQLI_ASSOC);
 
     // --- FUNCIÓN OPTIMIZADA PARA OBTENER DATOS (AHORA INCLUYE PARCIALES) ---
     function get_items_y_calificaciones($conn, $categoria_id, $alumnos)

@@ -53,6 +53,67 @@ if (isset($_POST['action'])) {
             }
             $stmt->close();
             break;
+
+        // --- ACCIÓN: IMPORTAR ALUMNOS DE OTRO GRUPO ---
+        case 'import_group':
+            $source_grupo = $_POST['source_grupo'];
+            
+            // 1. Obtener materia_id y ciclo_id de la clase actual
+            $stmt = $conn->prepare("SELECT materia_id, ciclo_id FROM Clases WHERE id = ?");
+            $stmt->bind_param("i", $clase_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res->num_rows > 0) {
+                $target_clase = $res->fetch_assoc();
+                $materia_id = $target_clase['materia_id'];
+                $ciclo_id = $target_clase['ciclo_id'];
+                $stmt->close();
+                
+                // 2. Obtener alumnos del grupo de origen que no estén ya inscritos en la misma materia/ciclo
+                $sql = "SELECT DISTINCT i.alumno_id 
+                        FROM Inscripciones i
+                        JOIN Clases c ON i.clase_id = c.id
+                        JOIN Usuarios u ON i.alumno_id = u.id
+                        WHERE c.grupo = ? 
+                          AND c.ciclo_id = ? 
+                          AND u.estado = 'Activo'
+                          AND u.perfil_id = 3
+                          AND i.alumno_id NOT IN (
+                              SELECT i2.alumno_id 
+                              FROM Inscripciones i2
+                              JOIN Clases c2 ON i2.clase_id = c2.id
+                              WHERE c2.materia_id = ? AND c2.ciclo_id = ?
+                          )";
+                $stmt2 = $conn->prepare($sql);
+                $stmt2->bind_param("siii", $source_grupo, $ciclo_id, $materia_id, $ciclo_id);
+                $stmt2->execute();
+                $res2 = $stmt2->get_result();
+                
+                $count = 0;
+                if ($res2->num_rows > 0) {
+                    $enroll_stmt = $conn->prepare("INSERT INTO Inscripciones (alumno_id, clase_id) VALUES (?, ?)");
+                    while ($row = $res2->fetch_assoc()) {
+                        $alumno_id = $row['alumno_id'];
+                        $enroll_stmt->bind_param("ii", $alumno_id, $clase_id);
+                        if ($enroll_stmt->execute()) {
+                            $count++;
+                            registrar_log($conn, $_SESSION['user_id'], 'ENROLL_STUDENT', "Alumno importado de grupo $source_grupo a clase: $clase_id", "Alumno ID: $alumno_id");
+                        }
+                    }
+                    $enroll_stmt->close();
+                }
+                $stmt2->close();
+                
+                if ($count > 0) {
+                    $_SESSION['message'] = ['type' => 'success', 'text' => "Se importaron $count alumnos del grupo $source_grupo exitosamente."];
+                } else {
+                    $_SESSION['message'] = ['type' => 'info', 'text' => "No se encontraron alumnos disponibles en el grupo $source_grupo para importar (o ya están inscritos en esta materia)."];
+                }
+            } else {
+                $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error: Clase destino no encontrada.'];
+                $stmt->close();
+            }
+            break;
     }
 }
 
